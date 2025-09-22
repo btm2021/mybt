@@ -53,8 +53,8 @@
   }
 
   if (dom.clearDataBtn) {
-    dom.clearDataBtn.addEventListener('click', () => {
-      const cleared = logic.clearAllData();
+    dom.clearDataBtn.addEventListener('click', async () => {
+      const cleared = await logic.clearAllData();
       if (cleared) {
         render.renderEverything();
       }
@@ -62,17 +62,18 @@
   }
 
   dom.viewButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      logic.setActiveView(btn.dataset.view);
+    btn.addEventListener('click', async () => {
+      await logic.setActiveView(btn.dataset.view);
       closeTradeEditor();
     });
   });
 
-  dom.symbolListEl.addEventListener('click', (event) => {
+  dom.symbolListEl.addEventListener('click', async (event) => {
     const deleteBtn = event.target.closest('.symbol-delete-btn');
     if (deleteBtn) {
       const symbolId = deleteBtn.dataset.symbolId;
-      if (logic.deleteSymbol(symbolId)) {
+      const deleted = await logic.deleteSymbol(symbolId);
+      if (deleted) {
         render.renderEverything();
       }
       return;
@@ -81,13 +82,13 @@
     const item = event.target.closest('.symbol-item');
     if (!item) return;
     state.selectedSymbolId = item.dataset.id;
-    saveState(state);
+    await saveState(state);
     render.renderEverything();
     closeTradeEditor();
   });
 
-  dom.symbolForm.addEventListener('submit', (event) => {
-    const created = logic.handleSymbolSubmit(event);
+  dom.symbolForm.addEventListener('submit', async (event) => {
+    const created = await logic.handleSymbolSubmit(event);
     if (created) {
       render.renderEverything();
       closeTradeEditor();
@@ -99,37 +100,78 @@
   });
 
   dom.resultButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      const added = logic.addTrade(button.dataset.result);
+    button.addEventListener('click', async () => {
+      const added = await logic.addTrade(button.dataset.result);
       if (added) {
         render.renderEverything();
+        
+        // Trigger blink animation for the new trade
+        if (app.lastAddedTrade) {
+          setTimeout(() => {
+            render.addTradeBlinkAnimation(app.lastAddedTrade.mode, app.lastAddedTrade.result);
+            app.lastAddedTrade = null; // Clear after use
+          }, 100); // Small delay to ensure DOM is updated
+        }
       }
     });
   });
 
   if (Array.isArray(dom.strategyTabs)) {
     dom.strategyTabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         const strategy = tab.dataset.strategy;
         if (!strategy) {
           return;
         }
         state.activeStrategy = strategy;
-        saveState(state);
+        await saveState(state);
         render.renderStrategyAnalysis();
       });
     });
   }
 
+  // Handle trade column clicks to switch modes
   dom.tradeHistoryEl.addEventListener('click', (event) => {
     const badge = event.target.closest('.trade-badge');
-    if (!badge) return;
-    openTradeEditor(badge.dataset.id);
+    if (badge) {
+      openTradeEditor(badge.dataset.id);
+      return;
+    }
+
+    const column = event.target.closest('.trade-column');
+    if (column) {
+      const mode = column.dataset.mode;
+      if (mode) {
+        // Update both analysis and strategy modes
+        state.activeAnalysisMode = mode;
+        state.activeStrategyMode = mode;
+        
+        // Update column active states
+        const allColumns = document.querySelectorAll('.trade-column');
+        allColumns.forEach(col => {
+          col.classList.toggle('active', col.dataset.mode === mode);
+        });
+        
+        // Update mode indicators
+        const analysisCurrentMode = document.getElementById('analysisCurrentMode');
+        const strategyCurrentMode = document.getElementById('strategyCurrentMode');
+        const modeLabels = { single: 'Single', multi: 'Multi', combi: 'Combi' };
+        
+        if (analysisCurrentMode) analysisCurrentMode.textContent = modeLabels[mode] || mode;
+        if (strategyCurrentMode) strategyCurrentMode.textContent = modeLabels[mode] || mode;
+        
+        // Re-render both panels
+        render.renderTradeAnalysis();
+        render.renderStrategyAnalysis();
+      }
+    }
   });
+
+
 
   if (dom.tradeEditor) {
     dom.tradeEditor.setAttribute('aria-hidden', 'true');
-    dom.tradeEditor.addEventListener('click', (event) => {
+    dom.tradeEditor.addEventListener('click', async (event) => {
       if (event.target === dom.tradeEditor) {
         closeTradeEditor();
         return;
@@ -151,7 +193,7 @@
       }
 
       if (action === 'set-win' || action === 'set-loss') {
-        const updated = logic.updateTrade(editingTradeId, {
+        const updated = await logic.updateTrade(editingTradeId, {
           result: action === 'set-win' ? 'win' : 'loss'
         });
         if (updated) {
@@ -162,7 +204,7 @@
       }
 
       if (action === 'delete') {
-        const deleted = logic.deleteTrade(editingTradeId);
+        const deleted = await logic.deleteTrade(editingTradeId);
         if (deleted) {
           render.renderEverything();
           closeTradeEditor();
@@ -172,13 +214,13 @@
   }
 
   if (dom.tradeEditorBigWin) {
-    dom.tradeEditorBigWin.addEventListener('change', () => {
+    dom.tradeEditorBigWin.addEventListener('change', async () => {
       if (!editingTradeId) {
         closeTradeEditor();
         return;
       }
 
-      const updated = logic.updateTrade(editingTradeId, {
+      const updated = await logic.updateTrade(editingTradeId, {
         isBigWin: dom.tradeEditorBigWin.checked
       });
 
@@ -195,12 +237,47 @@
     }
   });
 
-  if (state.activeView) {
-    logic.setActiveView(state.activeView);
-  } else {
-    logic.setActiveView('dashboard');
+  // Initialize app
+  async function initializeApp() {
+    try {
+      // Load state with loading overlay
+      const loadedState = await app.utils.loadState();
+      Object.assign(state, loadedState);
+      state.isLoading = false;
+      
+      if (state.activeView) {
+        await logic.setActiveView(state.activeView);
+      } else {
+        await logic.setActiveView('dashboard');
+      }
+
+      render.renderEverything();
+      logic.handleTradeModeChange();
+      
+      // Initialize mode indicators
+      const analysisCurrentMode = document.getElementById('analysisCurrentMode');
+      const strategyCurrentMode = document.getElementById('strategyCurrentMode');
+      const modeLabels = { single: 'Single', multi: 'Multi', combi: 'Combi' };
+      const currentMode = state.activeAnalysisMode || "single";
+      
+      if (analysisCurrentMode) analysisCurrentMode.textContent = modeLabels[currentMode] || currentMode;
+      if (strategyCurrentMode) strategyCurrentMode.textContent = modeLabels[currentMode] || currentMode;
+    } catch (error) {
+      console.error('Error initializing app:', error);
+      state.isLoading = false;
+      render.renderEverything();
+      
+      // Hide loading overlay on error
+      if (app.loadingManager) {
+        app.loadingManager.hide();
+      }
+    }
   }
 
-  render.renderEverything();
-  logic.handleTradeModeChange();
+  // Start the app when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeApp);
+  } else {
+    initializeApp();
+  }
 })(window.BacktestApp);

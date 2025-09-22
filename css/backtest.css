@@ -462,4 +462,347 @@
 
 .symbol-delete-btn:hover {
   color: #b22525;
+}/
+* Strategy Analysis Table */
+.analysis-table-wrapper {
+  margin-top: 1rem;
+}
+
+.analysis-table-wrapper h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.table-note {
+  margin-bottom: 0.75rem;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--highlight);
+  border-radius: 3px;
+  border-left: 2px solid var(--accent);
+}
+
+.table-note small {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.table-container {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+}
+
+.strategy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--panel);
+}
+
+.strategy-table th,
+.strategy-table td {
+  padding: 4px 6px;
+  text-align: right;
+  border-bottom: 1px solid var(--highlight);
+  font-family: inherit;
+}
+
+.strategy-table th {
+  background: var(--bg);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+}
+
+.strategy-table th:first-child,
+.strategy-table td:first-child {
+  text-align: center;
+  width: 40px;
+}
+
+.strategy-table th:nth-child(2),
+.strategy-table td:nth-child(2) {
+  text-align: center;
+  width: 80px;
+}
+
+.strategy-table th:nth-child(3),
+.strategy-table td:nth-child(3) {
+  width: 80px;
+}
+
+.strategy-table th:nth-child(4),
+.strategy-table td:nth-child(4) {
+  width: 80px;
+}
+
+.strategy-table th:nth-child(5),
+.strategy-table td:nth-child(5) {
+  width: 60px;
+}
+
+.strategy-table th:nth-child(6),
+.strategy-table td:nth-child(6) {
+  width: 80px;
+}
+
+.strategy-table tbody tr:hover {
+  background: var(--highlight);
+}
+
+.strategy-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.strategy-table tbody tr:nth-child(even):hover {
+  background: var(--highlight);
+}
+
+.strategy-table .result-win {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.strategy-table .result-loss {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.strategy-table .pnl-positive {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.strategy-table .pnl-negative {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.strategy-table .rr-ratio {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.strategy-table .big-win-indicator {
+  background: var(--bigwin);
+  border-radius: 2px;
+  padding: 1px 3px;
+  font-size: 9px;
+  font-weight: 600;
+  margin-left: 3px;
+  color: #16a34a;
+}
+
+/* Table Summary */
+.table-summary {
+  margin-top: 0.5rem;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.summary-row:last-child {
+  margin-bottom: 0;
+  padding-top: 3px;
+  border-top: 1px solid var(--highlight);
+  font-weight: 600;
+}
+
+.summary-label {
+  color: var(--muted);
+}
+
+.summary-value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.summary-value.positive {
+  color: #22c55e;
+}
+
+.summary-value.negative {
+  color: #ef4444;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+  .strategy-table {
+    font-size: 10px;
+  }
+  
+  .strategy-table th,
+  .strategy-table td {
+    padding: 3px 4px;
+  }
+  
+  .table-summary {
+    font-size: 10px;
+  }
+}/*
+ Strategy Mode Tabs */
+.strategy-mode-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--highlight);
+  padding-bottom: 0.5rem;
+}
+
+.strategy-mode-tab {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.strategy-mode-tab:hover {
+  background: var(--highlight);
+  color: var(--text);
+}
+
+.strategy-mode-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Analysis Mode Tabs */
+.analysis-tabs {
+  margin-bottom: 0.75rem;
+}
+
+.analysis-tab {
+  margin-bottom: 0.5rem;
+}/* Ana
+lysis Metrics Color Coding */
+.analysis-summary .summary-item strong.positive {
+  color: #22c55e;
+}
+
+.analysis-summary .summary-item strong.negative {
+  color: #ef4444;
+}
+
+.analysis-summary .summary-item strong {
+  transition: color 0.2s ease;
+}/* Tra
+de Badge Blink Animation */
+@keyframes tradeBlink {
+  0% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  25% { 
+    background-color: #22c55e;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4);
+  }
+  50% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  75% { 
+    background-color: #22c55e;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4);
+  }
+  100% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+}
+
+@keyframes tradeBlinkLoss {
+  0% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  25% { 
+    background-color: #ef4444;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.4);
+  }
+  50% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  75% { 
+    background-color: #ef4444;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.4);
+  }
+  100% { 
+    background-color: var(--panel);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+}
+
+.trade-badge.blink-win {
+  animation: tradeBlink 1.5s ease-in-out;
+}
+
+.trade-badge.blink-loss {
+  animation: tradeBlinkLoss 1.5s ease-in-out;
+}
+
+/* Trade Column Clickable */
+.trade-column {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trade-column:hover {
+  background: var(--highlight);
+  border-color: var(--accent-soft);
+}
+
+.trade-column.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.trade-column.active header {
+  color: white;
+}
+
+/* Mode indicator in headers */
+#analysisCurrentMode,
+#strategyCurrentMode {
+  color: var(--accent);
+  font-weight: 600;
 }

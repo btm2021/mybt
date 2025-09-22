@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -11,6 +12,7 @@
   <link rel="stylesheet" href="css/backtest.css">
   <link rel="stylesheet" href="css/responsive.css">
 </head>
+
 <body>
   <div class="app-shell">
     <header class="app-header">
@@ -46,6 +48,10 @@
       </nav>
       <main class="content">
         <section id="dashboardView" class="view active">
+          <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Đang tải dữ liệu từ Firebase...</p>
+          </div>
           <div class="cards-grid" id="summaryCards"></div>
           <div class="stats-section">
             <h2>Global statistics</h2>
@@ -116,8 +122,8 @@
                 <div id="tradeHistory"></div>
               </div>
               <div class="panel analysis-panel" id="tradeAnalysisPanel">
-                <h2>Analysis</h2>
-                <div class="analysis-summary">
+                <h2>Analysis - <span id="analysisCurrentMode">Single</span></h2>
+                <div class="analysis-summary" id="analysisSummary">
                   <div class="summary-item">
                     <span>Total Trades</span>
                     <strong id="analysisTotalTrades">0</strong>
@@ -135,6 +141,22 @@
                     <strong id="analysisWinRate">0%</strong>
                   </div>
                   <div class="summary-item">
+                    <span>Return</span>
+                    <strong id="analysisReturn">0%</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Sharpe Ratio</span>
+                    <strong id="analysisSharpe">0.00</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Max Drawdown</span>
+                    <strong id="analysisMaxDD">0%</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Profit Factor</span>
+                    <strong id="analysisProfitFactor">0.00</strong>
+                  </div>
+                  <div class="summary-item">
                     <span>Longest Win Streak</span>
                     <strong id="analysisLongestWin">0</strong>
                   </div>
@@ -145,11 +167,14 @@
                 </div>
               </div>
               <div class="panel analysis-panel" id="strategyAnalysisPanel">
-                <h2>Phan tich chien luoc</h2>
+                <h2>Phan tich chien luoc - <span id="strategyCurrentMode">Single</span></h2>
                 <div class="analysis-tabs" role="tablist">
-                  <button type="button" class="analysis-tab active" data-strategy="fixed" role="tab" aria-selected="true">Fixed</button>
-                  <button type="button" class="analysis-tab" data-strategy="martingale" role="tab" aria-selected="false">Martingale</button>
-                  <button type="button" class="analysis-tab" data-strategy="anti-martingale" role="tab" aria-selected="false">Anti-martingale</button>
+                  <button type="button" class="analysis-tab active" data-strategy="fixed" role="tab"
+                    aria-selected="true">Fixed</button>
+                  <button type="button" class="analysis-tab" data-strategy="martingale" role="tab"
+                    aria-selected="false">Martingale</button>
+                  <button type="button" class="analysis-tab" data-strategy="anti-martingale" role="tab"
+                    aria-selected="false">Anti-martingale</button>
                 </div>
                 <div class="analysis-summary" id="strategySummary">
                   <div class="summary-item">
@@ -179,7 +204,52 @@
                 </div>
                 <div class="analysis-chart" id="strategyChartWrapper">
                   <canvas id="strategyChart" aria-label="Duong cong von" role="img"></canvas>
-                  <div class="analysis-empty" id="strategyEmptyState">Chon symbol va them giao dich de xem mo phong von.</div>
+                  <div class="analysis-empty" id="strategyEmptyState">Chon symbol va them giao dich de xem mo phong von.
+                  </div>
+                </div>
+                <div class="analysis-table-wrapper" id="strategyTableWrapper">
+                  <h3>Chi tiet cac lenh</h3>
+                  <div class="table-note">
+                    <small>Vốn: 10,000 USD | Risk: 4% vốn hiện tại | Fixed: 4% mỗi lệnh | Martingale: x2 sau loss |
+                      Anti-Martingale: x2 sau win</small>
+                  </div>
+                  <div class="table-container">
+                    <table id="strategyTable" class="strategy-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Ket qua</th>
+                          <th>Von vao</th>
+                          <th>PnL</th>
+                          <th>Ti le RR</th>
+                          <th>Von sau</th>
+                        </tr>
+                      </thead>
+                      <tbody id="strategyTableBody">
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="analysis-empty" id="strategyTableEmptyState">Chon symbol va them giao dich de xem chi
+                    tiet.
+                  </div>
+                  <div class="table-summary" id="strategyTableSummary" style="display: none;">
+                    <div class="summary-row">
+                      <span class="summary-label">Tong lenh:</span>
+                      <span class="summary-value" id="summaryTotalTrades">0</span>
+                    </div>
+                    <div class="summary-row">
+                      <span class="summary-label">Tong von dau tu:</span>
+                      <span class="summary-value" id="summaryTotalStake">0 USDT</span>
+                    </div>
+                    <div class="summary-row">
+                      <span class="summary-label">Tong PnL:</span>
+                      <span class="summary-value" id="summaryTotalPnL">0 USDT</span>
+                    </div>
+                    <div class="summary-row">
+                      <span class="summary-label">Von cuoi cung:</span>
+                      <span class="summary-value" id="summaryFinalCapital">0 USDT</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -188,7 +258,7 @@
       </main>
     </div>
   </div>
-    <div id="tradeEditor" class="trade-editor" aria-hidden="true">
+  <div id="tradeEditor" class="trade-editor" aria-hidden="true">
     <div class="trade-editor-card" role="dialog" aria-modal="true">
       <header>
         <span>Edit trade</span>
@@ -214,24 +284,32 @@
       </footer>
     </div>
   </div>
-      </div>
-      <footer>
-       
-      </footer>
+  </div>
+  <footer>
+
+  </footer>
+  </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-overlay-content">
+      <div class="loading-spinner-large"></div>
+      <p id="loadingMessage">Đang xử lý...</p>
     </div>
   </div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="js/setup.js" defer></script>
-  <script src="js/logic.js" defer></script>
-  <script src="js/render.js" defer></script>
-  <script src="js/events.js" defer></script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/firebase-service.js"></script>
+  <script src="js/loading-manager.js"></script>
+  <script src="js/setup.js"></script>
+  <script src="js/logic.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/events.js"></script>
 </body>
+
 </html>
-
-
-
-
-
-
-
-

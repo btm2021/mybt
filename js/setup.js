@@ -1,30 +1,71 @@
 ﻿window.BacktestApp = window.BacktestApp || {};
 
 (function (app) {
-  const STORAGE_KEY = "manualBacktestState_v1";
-  const DEFAULT_CAPITAL = 1000;
+  const DEFAULT_CAPITAL = 10000;
+  let isInitialized = false;
 
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
+  async function loadState() {
+    return app.loadingManager.withLoading(async () => {
+      try {
+        await ensureInit();
+        
+        app.loadingManager.updateMessage('Đang tải symbols...');
+        const [symbols, settings] = await Promise.all([
+          app.firebaseService.getSymbols(),
+          app.firebaseService.getUserSettings()
+        ]);
+        
+        // Load trades for each symbol
+        app.loadingManager.updateMessage('Đang tải trades...');
+        for (const symbol of symbols) {
+          symbol.trades = await app.firebaseService.getTradesForSymbol(symbol.id);
+        }
+        
+        return {
+          symbols: symbols || [],
+          selectedSymbolId: settings.selectedSymbolId || null,
+          activeView: settings.activeView || "dashboard",
+          activeStrategy: settings.activeStrategy || "fixed"
+        };
+      } catch (error) {
+        console.warn("Unable to load state:", error);
         return { symbols: [], selectedSymbolId: null, activeView: "dashboard", activeStrategy: "fixed" };
       }
-      const parsed = JSON.parse(raw);
-      return {
-        symbols: Array.isArray(parsed.symbols) ? parsed.symbols : [],
-        selectedSymbolId: parsed.selectedSymbolId || null,
-        activeView: parsed.activeView || "dashboard",
-        activeStrategy: parsed.activeStrategy || "fixed"
-      };
+    }, 'Đang khởi tạo ứng dụng...');
+  }
+
+  async function saveState(state) {
+    try {
+      await ensureInit();
+      
+      await app.firebaseService.saveUserSettings({
+        selectedSymbolId: state.selectedSymbolId,
+        activeView: state.activeView,
+        activeStrategy: state.activeStrategy
+      });
     } catch (error) {
-      console.warn("Unable to read localStorage:", error);
-      return { symbols: [], selectedSymbolId: null, activeView: "dashboard", activeStrategy: "fixed" };
+      console.error("Unable to save state:", error);
     }
   }
 
-  function saveState(state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Version with loading for explicit saves
+  async function saveStateWithLoading(state, message = 'Đang lưu...') {
+    return app.loadingManager.withLoading(async () => {
+      return saveState(state);
+    }, message);
+  }
+
+  async function ensureInit() {
+    if (!isInitialized) {
+      try {
+        await app.firebaseService.init();
+        isInitialized = true;
+        console.log('Firebase service initialized');
+      } catch (error) {
+        console.error("Firebase initialization failed:", error);
+        throw error;
+      }
+    }
   }
 
   function generateId(prefix = "id") {
@@ -40,8 +81,16 @@
     return new Date(isoString).toLocaleString();
   }
 
-  const state = loadState();
-  state.activeStrategy = state.activeStrategy || "fixed";
+  // State will be loaded asynchronously
+  const state = { 
+    symbols: [], 
+    selectedSymbolId: null, 
+    activeView: "dashboard", 
+    activeStrategy: "fixed",
+    activeAnalysisMode: "single",
+    activeStrategyMode: "single",
+    isLoading: true
+  };
 
   const dom = {
     viewButtons: Array.from(document.querySelectorAll(".nav-btn")),
@@ -78,11 +127,19 @@
     strategyChartCanvas: document.getElementById("strategyChart"),
     strategyChartWrapper: document.getElementById("strategyChartWrapper"),
     strategyEmptyState: document.getElementById("strategyEmptyState"),
+    strategyTableWrapper: document.getElementById("strategyTableWrapper"),
+    strategyTable: document.getElementById("strategyTable"),
+    strategyTableBody: document.getElementById("strategyTableBody"),
+    strategyTableEmptyState: document.getElementById("strategyTableEmptyState"),
     analysisStats: {
       totalTrades: document.getElementById("analysisTotalTrades"),
       wins: document.getElementById("analysisWins"),
       losses: document.getElementById("analysisLosses"),
       winRate: document.getElementById("analysisWinRate"),
+      return: document.getElementById("analysisReturn"),
+      sharpe: document.getElementById("analysisSharpe"),
+      maxDD: document.getElementById("analysisMaxDD"),
+      profitFactor: document.getElementById("analysisProfitFactor"),
       longestWin: document.getElementById("analysisLongestWin"),
       longestLoss: document.getElementById("analysisLongestLoss")
     },
@@ -100,11 +157,14 @@
     resultButtons: Array.from(document.querySelectorAll(".button-row button"))
   };
 
-  app.constants = { STORAGE_KEY, DEFAULT_CAPITAL };
+  app.constants = { DEFAULT_CAPITAL };
   app.state = state;
   app.dom = dom;
   app.utils = {
+    loadState,
     saveState,
+    saveStateWithLoading,
+    ensureInit,
     generateId,
     toOneDecimal,
     formatTimestamp

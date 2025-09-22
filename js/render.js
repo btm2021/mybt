@@ -208,6 +208,8 @@
       { key: 'combi', label: 'Combi' }
     ];
 
+    const currentMode = state.activeAnalysisMode || "single";
+
     const columns = groups.map((group) => {
       const trades = symbol.trades
         .filter((trade) => trade.mode === group.key)
@@ -232,9 +234,10 @@
         .join('');
 
       const body = badges || '<span class="trade-empty">No trades</span>';
+      const isActive = group.key === currentMode;
 
       return `
-        <section class="trade-column" data-mode="${group.key}">
+        <section class="trade-column ${isActive ? 'active' : ''}" data-mode="${group.key}">
           <header>
             <span class="column-title">${group.label}</span>
             <span class="column-count">${trades.length}</span>
@@ -247,6 +250,27 @@
     }).join('');
 
     dom.tradeHistoryEl.innerHTML = `<div class="trade-columns">${columns}</div>`;
+  }
+
+  function addTradeBlinkAnimation(mode, result) {
+    // Find the newest trade badge in the specified mode column
+    const column = document.querySelector(`.trade-column[data-mode="${mode}"]`);
+    if (!column) return;
+
+    const badges = column.querySelectorAll('.trade-badge');
+    if (badges.length === 0) return;
+
+    // Get the first badge (newest trade since they're reversed)
+    const newestBadge = badges[0];
+    
+    // Add blink animation
+    const animationClass = result === 'win' ? 'blink-win' : 'blink-loss';
+    newestBadge.classList.add(animationClass);
+    
+    // Remove animation class after animation completes
+    setTimeout(() => {
+      newestBadge.classList.remove(animationClass);
+    }, 1500);
   }
 
   function renderStrategyAnalysis() {
@@ -293,6 +317,11 @@
       if (dom.strategyEmptyState) {
         dom.strategyEmptyState.textContent = message;
       }
+      // Hide strategy table
+      const tableWrapper = document.getElementById('strategyTableWrapper');
+      const emptyState = document.getElementById('strategyTableEmptyState');
+      if (tableWrapper) tableWrapper.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'block';
     };
 
     const symbol = logic.getSelectedSymbol();
@@ -302,10 +331,13 @@
       return;
     }
 
-    const trades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    const allTrades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    const currentMode = state.activeStrategyMode || "single";
+    const trades = allTrades.filter(trade => trade.mode === currentMode);
+    
     if (!trades.length) {
       applyStats(null);
-      resetChart("Them giao dich de xem mo phong von.");
+      resetChart(`Them giao dich ${currentMode} de xem mo phong von.`);
       return;
     }
 
@@ -386,9 +418,173 @@
     if (dom.strategyEmptyState) {
       dom.strategyEmptyState.textContent = "";
     }
+
+    // Render strategy table
+    renderStrategyTable(symbol, trades, strategy);
+  }
+
+  function renderStrategyTable(symbol, trades, strategy) {
+    const tableWrapper = document.getElementById('strategyTableWrapper');
+    const tableBody = document.getElementById('strategyTableBody');
+    const emptyState = document.getElementById('strategyTableEmptyState');
+    const tableSummary = document.getElementById('strategyTableSummary');
+
+    if (!tableWrapper || !tableBody || !emptyState) return;
+
+    if (!trades.length) {
+      tableWrapper.style.display = 'none';
+      emptyState.style.display = 'block';
+      if (tableSummary) tableSummary.style.display = 'none';
+      return;
+    }
+
+    tableWrapper.style.display = 'block';
+    emptyState.style.display = 'none';
+    if (tableSummary) tableSummary.style.display = 'block';
+
+    // Calculate detailed simulation with trade-by-trade breakdown
+    const baseCapital = Number.isFinite(symbol.baseCapital) ? symbol.baseCapital : DEFAULT_CAPITAL;
+    const riskPercentage = 0.04; // 4% of current capital
+    
+    let capital = baseCapital;
+    let martingaleLosses = 0;
+    let antiWins = 0;
+    let baseStakeAmount = baseCapital * riskPercentage; // Initial 4% = 400 USD
+    const tradeDetails = [];
+    let totalStake = 0;
+    let totalPnL = 0;
+
+    trades.forEach((trade, index) => {
+      let stake = 0;
+      
+      // Calculate stake based on strategy
+      if (strategy === "fixed") {
+        // Fixed: Always 4% of current capital
+        stake = capital * riskPercentage;
+      } else if (strategy === "martingale") {
+        // Martingale: Double the base amount after each loss
+        stake = baseStakeAmount * Math.pow(2, martingaleLosses);
+      } else if (strategy === "anti-martingale") {
+        // Anti-martingale: Double the base amount after each win
+        stake = baseStakeAmount * Math.pow(2, antiWins);
+      }
+
+      stake = Math.min(stake, capital);
+      totalStake += stake;
+      
+      let pnl = 0;
+      let rrRatio = "N/A";
+
+      if (trade.result === "win") {
+        // Calculate RR ratio and PnL based on it
+        if (trade.isBigWin) {
+          rrRatio = "1:2"; // Big win
+          pnl = stake * 2; // Big win: RR 1:2
+        } else {
+          rrRatio = "1:1"; // Normal win
+          pnl = stake * 1; // Normal win: RR 1:1
+        }
+        
+        martingaleLosses = 0;
+        if (strategy === "anti-martingale") {
+          antiWins += 1;
+        } else {
+          antiWins = 0;
+        }
+      } else {
+        // Loss: lose the stake
+        pnl = -stake;
+        rrRatio = "1:0"; // Loss
+        antiWins = 0;
+        if (strategy === "martingale") {
+          martingaleLosses += 1;
+        } else {
+          martingaleLosses = 0;
+        }
+      }
+
+      capital = Math.max(0, capital + pnl);
+      totalPnL += pnl;
+      
+      // Update base stake for martingale strategies (based on new capital)
+      if (strategy === "fixed") {
+        // For fixed, base stake is always recalculated from current capital
+        // No need to update baseStakeAmount as we calculate from current capital
+      } else {
+        // For martingale strategies, update base stake when we reset
+        if (martingaleLosses === 0 && antiWins === 0) {
+          baseStakeAmount = capital * riskPercentage;
+        }
+      }
+
+      tradeDetails.push({
+        index: index + 1,
+        result: trade.result,
+        isBigWin: trade.isBigWin,
+        stake: stake,
+        pnl: pnl,
+        rrRatio: rrRatio,
+        capitalAfter: capital
+      });
+    });
+
+    // Render table rows
+    const rows = tradeDetails.map(detail => {
+      const resultClass = detail.result === 'win' ? 'result-win' : 'result-loss';
+      const pnlClass = detail.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+      const resultText = detail.result === 'win' ? 'Win' : 'Loss';
+      const bigWinIndicator = detail.isBigWin ? '<span class="big-win-indicator">BIG</span>' : '';
+      
+      return `
+        <tr>
+          <td>${detail.index}</td>
+          <td class="${resultClass}">${resultText}${bigWinIndicator}</td>
+          <td>${detail.stake.toFixed(1)}</td>
+          <td class="${pnlClass}">${detail.pnl >= 0 ? '+' : ''}${detail.pnl.toFixed(1)}</td>
+          <td class="rr-ratio">${detail.rrRatio}</td>
+          <td>${detail.capitalAfter.toFixed(1)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    tableBody.innerHTML = rows;
+
+    // Update summary
+    if (tableSummary) {
+      const summaryTotalTrades = document.getElementById('summaryTotalTrades');
+      const summaryTotalStake = document.getElementById('summaryTotalStake');
+      const summaryTotalPnL = document.getElementById('summaryTotalPnL');
+      const summaryFinalCapital = document.getElementById('summaryFinalCapital');
+
+      if (summaryTotalTrades) summaryTotalTrades.textContent = trades.length;
+      if (summaryTotalStake) summaryTotalStake.textContent = `${totalStake.toFixed(1)} USDT`;
+      
+      if (summaryTotalPnL) {
+        summaryTotalPnL.textContent = `${totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(1)} USDT`;
+        summaryTotalPnL.className = `summary-value ${totalPnL >= 0 ? 'positive' : 'negative'}`;
+      }
+      
+      if (summaryFinalCapital) {
+        summaryFinalCapital.textContent = `${capital.toFixed(1)} USDT`;
+        summaryFinalCapital.className = `summary-value ${capital >= baseCapital ? 'positive' : 'negative'}`;
+      }
+    }
   }
 
   function renderEverything() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    if (state.isLoading) {
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+      }
+      return;
+    } else {
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+    }
+    
     renderSummaryCards();
     renderModeStats();
     renderSymbolStats();
@@ -404,7 +600,7 @@
     const statsEls = dom.analysisStats || {};
     const symbol = logic.getSelectedSymbol();
 
-    const applyStats = (summary) => {
+    const applyStats = (summary, metrics) => {
       const data = summary || {
         total: 0,
         wins: 0,
@@ -413,27 +609,57 @@
         longestWin: 0,
         longestLoss: 0
       };
+      
+      const metricsData = metrics || {
+        return: 0,
+        sharpeRatio: 0,
+        maxDrawdown: 0,
+        profitFactor: 0
+      };
+
       if (statsEls.totalTrades) statsEls.totalTrades.textContent = data.total.toString();
       if (statsEls.wins) statsEls.wins.textContent = data.wins.toString();
       if (statsEls.losses) statsEls.losses.textContent = data.losses.toString();
       if (statsEls.winRate) statsEls.winRate.textContent = `${toOneDecimal(data.winRate)}%`;
       if (statsEls.longestWin) statsEls.longestWin.textContent = data.longestWin.toString();
       if (statsEls.longestLoss) statsEls.longestLoss.textContent = data.longestLoss.toString();
+      
+      // New backtest metrics
+      if (statsEls.return) {
+        statsEls.return.textContent = `${metricsData.return >= 0 ? '+' : ''}${toOneDecimal(metricsData.return)}%`;
+        statsEls.return.className = metricsData.return >= 0 ? 'positive' : 'negative';
+      }
+      if (statsEls.sharpe) {
+        statsEls.sharpe.textContent = metricsData.sharpeRatio.toFixed(2);
+        statsEls.sharpe.className = metricsData.sharpeRatio >= 1 ? 'positive' : (metricsData.sharpeRatio >= 0 ? '' : 'negative');
+      }
+      if (statsEls.maxDD) {
+        statsEls.maxDD.textContent = `-${toOneDecimal(metricsData.maxDrawdown)}%`;
+        statsEls.maxDD.className = 'negative';
+      }
+      if (statsEls.profitFactor) {
+        statsEls.profitFactor.textContent = metricsData.profitFactor.toFixed(2);
+        statsEls.profitFactor.className = metricsData.profitFactor >= 1 ? 'positive' : 'negative';
+      }
     };
 
     if (!symbol) {
-      applyStats(null);
+      applyStats(null, null);
       return;
     }
 
-    const trades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    const allTrades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    const currentMode = state.activeAnalysisMode || "single";
+    const trades = allTrades.filter(trade => trade.mode === currentMode);
+    
     if (!trades.length) {
-      applyStats(null);
+      applyStats(null, null);
       return;
     }
 
     const summary = logic.computeTradeBreakdown(trades);
-    applyStats(summary);
+    const metrics = logic.computeBacktestMetrics(trades, symbol, state.activeStrategy || "fixed");
+    applyStats(summary, metrics);
   }
 
   app.render = {
@@ -446,6 +672,7 @@
     renderTradeHistory,
     renderStrategyAnalysis,
     renderEverything,
-    renderTradeAnalysis
+    renderTradeAnalysis,
+    addTradeBlinkAnimation
   };
 })(window.BacktestApp);
