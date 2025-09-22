@@ -1,0 +1,24 @@
+﻿:root {
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  --bg: #f9f9f9;
+  --text: #111;
+  --muted: #6b6b6b;
+  --accent: #111;
+  --accent-soft: #1f1f1f;
+  --panel: #ffffff;
+  --border: #161616;
+  --highlight: #ededed;
+  --bigwin: #e2ffe2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}

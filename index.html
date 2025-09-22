@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Backtest Dashboard</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/backtest.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="header-title">Manual Backtest</div>
+      <div class="status-indicator" title="Connection status">
+        <span class="status-dot"></span>
+        <span>Offline</span>
+      </div>
+    </header>
+    <div class="layout">
+      <nav class="sidebar">
+        <button type="button" class="nav-btn active" data-view="dashboard">Dashboard</button>
+        <button type="button" class="nav-btn" data-view="backtest">Backtest</button>
+        <div class="sidebar-panel">
+          <h2>Symbol manager</h2>
+          <form id="symbolForm" class="sidebar-form">
+            <label for="symbolName">Symbol name</label>
+            <input id="symbolName" type="text" placeholder="e.g. BTCUSDT" required>
+
+            <label for="symbolExchange">Exchange</label>
+            <input id="symbolExchange" type="text" placeholder="e.g. Binance" required>
+
+            <label for="symbolTimeframe">Timeframe</label>
+            <input id="symbolTimeframe" type="text" placeholder="e.g. 1H" required>
+
+            <label for="symbolIndicators">Indicator list</label>
+            <textarea id="symbolIndicators" placeholder="One indicator per line, optional params"></textarea>
+
+            <label for="symbolComment">Parameters or comment</label>
+            <textarea id="symbolComment" placeholder="Strategy notes, DCA plan, etc."></textarea>
+
+            <button type="submit" class="form-action">Create symbol</button>
+          </form>
+          <div class="symbol-list" id="symbolList"></div>
+        </div>
+      </nav>
+      <main class="content">
+        <section id="dashboardView" class="view active">
+          <div class="cards-grid" id="summaryCards"></div>
+          <div class="stats-section">
+            <h2>Global statistics</h2>
+            <div id="globalWinRateNote" class="note"></div>
+            <table id="modeStatsTable">
+              <thead>
+                <tr>
+                  <th>Mode</th>
+                  <th>Trades</th>
+                  <th>Wins</th>
+                  <th>Losses</th>
+                  <th>Win %</th>
+                  <th>Big Wins</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <details>
+              <summary>Per symbol snapshot</summary>
+              <div id="symbolStats"></div>
+            </details>
+            <details>
+              <summary>Capital management</summary>
+              <div id="capitalStrategies"></div>
+            </details>
+          </div>
+        </section>
+        <section id="backtestView" class="view">
+          <div class="backtest-columns">
+            <div class="panel backtest-panel">
+              <h2>Backtest</h2>
+              <div id="activeSymbolInfo"></div>
+              <form id="tradeForm">
+                <label for="backtestMode">Backtest mode</label>
+                <select id="backtestMode">
+                  <option value="single">Single - one indicator</option>
+                  <option value="multi">Multi - many indicators</option>
+                  <option value="combi">Combi - indicators with DCA</option>
+                </select>
+
+                <div id="singleIndicatorGroup">
+                  <label for="primaryIndicator">Main indicator (single)</label>
+                  <input id="primaryIndicator" type="text" placeholder="e.g. RSI 14">
+                </div>
+
+                <div id="multiIndicatorGroup" style="display:none;">
+                  <label for="indicatorCombo">Indicator combo</label>
+                  <textarea id="indicatorCombo" placeholder="List combined indicators"></textarea>
+                </div>
+
+                <label for="roeInput">ROE (%) - minimum for Win: 2.5%</label>
+                <input id="roeInput" type="number" step="0.1" value="2.5">
+
+                <label for="notesInput">Trade notes</label>
+                <textarea id="notesInput" placeholder="Entry trigger, scaling plan..."></textarea>
+
+                <label class="note"><input type="checkbox" id="bigWinToggle"> Mark as Big Win</label>
+
+                <div class="note">Kelly: stake = Kelly/20. Fixed 2% stake. Martingale: x2 after loss. Anti-martingale: x2 after win.</div>
+
+                <div class="button-row">
+                  <button type="button" class="win" data-result="win">Add Win</button>
+                  <button type="button" class="loss" data-result="loss">Add Loss</button>
+                </div>
+              </form>
+            </div>
+            <div class="panel trade-panel">
+              <h2>Trade log</h2>
+              <div id="tradeHistory"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+    <div id="tradeEditor" class="trade-editor" aria-hidden="true">
+    <div class="trade-editor-card" role="dialog" aria-modal="true">
+      <header>
+        <span>Edit trade</span>
+        <button type="button" class="trade-editor-close" data-editor-action="close" aria-label="Close">&times;</button>
+      </header>
+      <div class="trade-editor-body">
+        <div class="trade-editor-row">
+          <span class="label">Result</span>
+          <div class="editor-buttons">
+            <button type="button" class="editor-btn win" data-editor-action="set-win">&#10004; Win</button>
+            <button type="button" class="editor-btn loss" data-editor-action="set-loss">&#10006; Loss</button>
+          </div>
+        </div>
+        <label class="trade-editor-row toggle">
+          <input type="checkbox" id="tradeEditorBigWin">
+          <span>Mark as big win</span>
+        </label>
+        <div class="trade-editor-meta" id="tradeEditorMeta"></div>
+      </div>
+      <footer>
+        <button type="button" class="editor-btn danger" data-editor-action="delete">Delete</button>
+        <button type="button" class="editor-btn ghost" data-editor-action="close">Close</button>
+      </footer>
+    </div>
+  </div>
+      </div>
+      <footer>
+        <button type="button" class="editor-btn danger" data-editor-action="delete">Xóa</button>
+        <button type="button" class="editor-btn ghost" data-editor-action="close">Đóng</button>
+      </footer>
+    </div>
+  </div>
+<script src="js/setup.js" defer></script>
+  <script src="js/logic.js" defer></script>
+  <script src="js/render.js" defer></script>
+  <script src="js/events.js" defer></script>
+</body>
+</html>
+

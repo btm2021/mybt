@@ -1,0 +1,362 @@
+﻿.backtest-columns {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) 1fr;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.trade-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.trade-column {
+  border: 1.5px solid var(--accent);
+  background: var(--panel);
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.trade-column header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+
+.trade-column header .column-count {
+  font-weight: 600;
+}
+
+.trade-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+}
+
+.trade-badge {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+  background: var(--panel);
+}
+
+.trade-badge.win {
+  color: #16753b;
+}
+
+.trade-badge.loss {
+  color: #b22525;
+}
+
+.trade-badge.big {
+  background: #f5fff0;
+}
+
+.trade-badge:hover,
+.trade-badge:focus-visible {
+  transform: translateY(-1px);
+}
+
+.trade-empty {
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0.35rem 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.panel h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.04rem;
+  text-transform: uppercase;
+}
+
+.backtest-panel form label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.backtest-panel form input,
+.backtest-panel form select,
+.backtest-panel form textarea {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  margin-bottom: 0.6rem;
+}
+
+.backtest-panel form textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.form-action {
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.form-action:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.symbol-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.symbol-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1.5px solid var(--accent);
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+  font-size: 0.78rem;
+}
+
+.symbol-item.active,
+.symbol-item:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.symbol-meta {
+  font-size: 0.68rem;
+  color: inherit;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.button-row button {
+  flex: 1;
+  border: 1.5px solid var(--accent);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.button-row .win {
+  background: var(--accent);
+  color: #fff;
+}
+
+.button-row .win:hover {
+  background: var(--accent-soft);
+}
+
+.button-row .loss {
+  color: var(--accent);
+}
+
+.button-row .loss:hover {
+  background: var(--accent-soft);
+  color: #fff;
+}
+
+.empty-state {
+  border: 1.5px dashed var(--border);
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.active-symbol {
+  border: 1.5px solid var(--accent);
+  background: var(--highlight);
+  padding: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.active-symbol h3 {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.9rem;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.tag {
+  border: 1px solid var(--accent);
+  padding: 0.15rem 0.4rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04rem;
+}
+
+.trade-editor {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 40;
+}
+
+.trade-editor.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.trade-editor-card {
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  width: min(300px, 92vw);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+}
+
+.trade-editor-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05rem;
+}
+
+.trade-editor-close {
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.trade-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+}
+
+.trade-editor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.trade-editor-row.toggle {
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.trade-editor-row .label {
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.editor-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.editor-btn {
+  border: 1px solid var(--accent);
+  background: transparent;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.editor-btn.win {
+  color: #16753b;
+}
+
+.editor-btn.loss {
+  color: #b22525;
+}
+
+.editor-btn.danger {
+  border-color: #b22525;
+  color: #b22525;
+}
+
+.editor-btn.ghost {
+  color: var(--muted);
+}
+
+.editor-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.trade-editor-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.trade-editor-card footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.backtest-panel form.disabled {
+  opacity: 0.55;
+}

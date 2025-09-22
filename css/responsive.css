@@ -1,0 +1,44 @@
+﻿@media (max-width: 900px) {
+  .sidebar {
+    width: 160px;
+  }
+
+  .trade-columns {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: flex-start;
+    border-right: none;
+    border-bottom: 2px solid var(--accent);
+    gap: 0.75rem;
+  }
+
+  .sidebar-panel {
+    flex: 1;
+    max-width: 100%;
+  }
+
+  .nav-btn {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+
+  .trade-columns {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .trade-columns {
+    grid-template-columns: 1fr;
+  }
+}
