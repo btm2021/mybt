@@ -274,6 +274,116 @@
     });
     return stake;
   }
+  function computeTradeBreakdown(trades = []) {
+    const summary = {
+      total: 0,
+      wins: 0,
+      losses: 0,
+      winRate: 0,
+      longestWin: 0,
+      longestLoss: 0
+    };
+    let currentWin = 0;
+    let currentLoss = 0;
+
+    trades.forEach((trade) => {
+      if (!trade || !trade.result) {
+        return;
+      }
+      summary.total += 1;
+      if (trade.result === "win") {
+        summary.wins += 1;
+        currentWin += 1;
+        currentLoss = 0;
+        if (currentWin > summary.longestWin) {
+          summary.longestWin = currentWin;
+        }
+      } else if (trade.result === "loss") {
+        summary.losses += 1;
+        currentLoss += 1;
+        currentWin = 0;
+        if (currentLoss > summary.longestLoss) {
+          summary.longestLoss = currentLoss;
+        }
+      }
+    });
+
+    if (summary.total > 0) {
+      summary.winRate = (summary.wins / summary.total) * 100;
+    }
+
+    return summary;
+  }
+
+  function computeStrategySimulation(trades = [], strategyKey = "fixed", options = {}) {
+    const baseCapital = Number.isFinite(options.baseCapital) ? options.baseCapital : DEFAULT_CAPITAL;
+    const riskFraction = Number.isFinite(options.riskFraction) ? options.riskFraction : 0.02;
+    const baseStake = baseCapital * riskFraction;
+    const labels = ["Start"];
+    const equity = [Number.parseFloat(baseCapital.toFixed(2))];
+    let capital = baseCapital;
+    let martingaleLosses = 0;
+    let antiWins = 0;
+
+    trades.forEach((trade, index) => {
+      if (!trade) {
+        return;
+      }
+
+      let stake = baseStake;
+      if (strategyKey === "martingale") {
+        stake = baseStake * Math.pow(2, martingaleLosses);
+      } else if (strategyKey === "anti-martingale") {
+        stake = baseStake * Math.pow(2, antiWins);
+      }
+
+      stake = Math.min(stake, capital);
+      const roe = Number.isFinite(trade.roe) ? trade.roe : 0;
+      let pnl = 0;
+
+      if (trade.result === "win") {
+        pnl = stake * (roe / 100);
+        martingaleLosses = 0;
+        if (strategyKey === "anti-martingale") {
+          antiWins += 1;
+        } else {
+          antiWins = 0;
+        }
+      } else {
+        pnl = -stake;
+        antiWins = 0;
+        if (strategyKey === "martingale") {
+          martingaleLosses += 1;
+        } else {
+          martingaleLosses = 0;
+        }
+      }
+
+      capital = Math.max(0, capital + pnl);
+      labels.push(`#${index + 1}`);
+      equity.push(Number.parseFloat(capital.toFixed(2)));
+    });
+
+    return { labels, equity };
+  }
+
+  function clearAllData() {
+    const confirmed = confirm("Are you sure you want to delete all data? This action cannot be undone.");
+    if (confirmed) {
+      state.symbols = [];
+      state.selectedSymbolId = null;
+      state.activeView = "dashboard";
+      state.activeStrategy = "fixed";
+      saveState({
+        symbols: [],
+        selectedSymbolId: null,
+        activeView: "dashboard",
+        activeStrategy: "fixed"
+      });
+      return true;
+    }
+    return false;
+  }
 
   app.logic = {
     getSymbolById,
@@ -291,12 +401,9 @@
     computeWinRate,
     computeKellyFraction,
     computeMartingaleStake,
-    computeAntiMartingaleStake
+    computeAntiMartingaleStake,
+    computeTradeBreakdown,
+    computeStrategySimulation,
+    clearAllData
   };
 })(window.BacktestApp);
-
-
-
-
-
-

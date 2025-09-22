@@ -8,17 +8,18 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        return { symbols: [], selectedSymbolId: null, activeView: "dashboard" };
+        return { symbols: [], selectedSymbolId: null, activeView: "dashboard", activeStrategy: "fixed" };
       }
       const parsed = JSON.parse(raw);
       return {
         symbols: Array.isArray(parsed.symbols) ? parsed.symbols : [],
         selectedSymbolId: parsed.selectedSymbolId || null,
-        activeView: parsed.activeView || "dashboard"
+        activeView: parsed.activeView || "dashboard",
+        activeStrategy: parsed.activeStrategy || "fixed"
       };
     } catch (error) {
       console.warn("Unable to read localStorage:", error);
-      return { symbols: [], selectedSymbolId: null, activeView: "dashboard" };
+      return { symbols: [], selectedSymbolId: null, activeView: "dashboard", activeStrategy: "fixed" };
     }
   }
 
@@ -40,6 +41,7 @@
   }
 
   const state = loadState();
+  state.activeStrategy = state.activeStrategy || "fixed";
 
   const dom = {
     viewButtons: Array.from(document.querySelectorAll(".nav-btn")),
@@ -51,7 +53,7 @@
     modeStatsTableBody: document.querySelector("#modeStatsTable tbody"),
     symbolStatsEl: document.getElementById("symbolStats"),
     capitalStrategiesEl: document.getElementById("capitalStrategies"),
-    globalWinRateNote: document.getElementById("globalWinRateNote"),
+    clearDataBtn: document.getElementById("clearDataBtn"),
     symbolForm: document.getElementById("symbolForm"),
     symbolNameInput: document.getElementById("symbolName"),
     symbolExchangeInput: document.getElementById("symbolExchange"),
@@ -62,6 +64,28 @@
     activeSymbolInfo: document.getElementById("activeSymbolInfo"),
     tradeForm: document.getElementById("tradeForm"),
     tradeHistoryEl: document.getElementById("tradeHistory"),
+    strategyAnalysisPanel: document.getElementById("strategyAnalysisPanel"),
+    strategyTabs: Array.from(document.querySelectorAll(".analysis-tab")),
+    strategySummary: document.getElementById("strategySummary"),
+    strategyStats: {
+      totalTrades: document.getElementById("strategyTotalTrades"),
+      wins: document.getElementById("strategyWins"),
+      losses: document.getElementById("strategyLosses"),
+      winRate: document.getElementById("strategyWinRate"),
+      longestWin: document.getElementById("strategyLongestWin"),
+      longestLoss: document.getElementById("strategyLongestLoss")
+    },
+    strategyChartCanvas: document.getElementById("strategyChart"),
+    strategyChartWrapper: document.getElementById("strategyChartWrapper"),
+    strategyEmptyState: document.getElementById("strategyEmptyState"),
+    analysisStats: {
+      totalTrades: document.getElementById("analysisTotalTrades"),
+      wins: document.getElementById("analysisWins"),
+      losses: document.getElementById("analysisLosses"),
+      winRate: document.getElementById("analysisWinRate"),
+      longestWin: document.getElementById("analysisLongestWin"),
+      longestLoss: document.getElementById("analysisLongestLoss")
+    },
     tradeEditor: document.getElementById("tradeEditor"),
     tradeEditorMeta: document.getElementById("tradeEditorMeta"),
     tradeEditorBigWin: document.getElementById("tradeEditorBigWin"),
@@ -86,5 +110,8 @@
     formatTimestamp
   };
 })(window.BacktestApp);
+
+
+
 
 

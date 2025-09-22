@@ -15,10 +15,7 @@
   <div class="app-shell">
     <header class="app-header">
       <div class="header-title">Manual Backtest</div>
-      <div class="status-indicator" title="Connection status">
-        <span class="status-dot"></span>
-        <span>Offline</span>
-      </div>
+      <button type="button" id="clearDataBtn" class="header-action-btn" title="Clear all data">Clear Data</button>
     </header>
     <div class="layout">
       <nav class="sidebar">
@@ -107,17 +104,84 @@
 
                 <label class="note"><input type="checkbox" id="bigWinToggle"> Mark as Big Win</label>
 
-                <div class="note">Kelly: stake = Kelly/20. Fixed 2% stake. Martingale: x2 after loss. Anti-martingale: x2 after win.</div>
-
                 <div class="button-row">
                   <button type="button" class="win" data-result="win">Add Win</button>
                   <button type="button" class="loss" data-result="loss">Add Loss</button>
                 </div>
               </form>
             </div>
-            <div class="panel trade-panel">
-              <h2>Trade log</h2>
-              <div id="tradeHistory"></div>
+            <div class="backtest-right">
+              <div class="panel trade-panel">
+                <h2>Trade log</h2>
+                <div id="tradeHistory"></div>
+              </div>
+              <div class="panel analysis-panel" id="tradeAnalysisPanel">
+                <h2>Analysis</h2>
+                <div class="analysis-summary">
+                  <div class="summary-item">
+                    <span>Total Trades</span>
+                    <strong id="analysisTotalTrades">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Wins</span>
+                    <strong id="analysisWins">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Losses</span>
+                    <strong id="analysisLosses">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Win Rate</span>
+                    <strong id="analysisWinRate">0%</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Longest Win Streak</span>
+                    <strong id="analysisLongestWin">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Longest Loss Streak</span>
+                    <strong id="analysisLongestLoss">0</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="panel analysis-panel" id="strategyAnalysisPanel">
+                <h2>Phan tich chien luoc</h2>
+                <div class="analysis-tabs" role="tablist">
+                  <button type="button" class="analysis-tab active" data-strategy="fixed" role="tab" aria-selected="true">Fixed</button>
+                  <button type="button" class="analysis-tab" data-strategy="martingale" role="tab" aria-selected="false">Martingale</button>
+                  <button type="button" class="analysis-tab" data-strategy="anti-martingale" role="tab" aria-selected="false">Anti-martingale</button>
+                </div>
+                <div class="analysis-summary" id="strategySummary">
+                  <div class="summary-item">
+                    <span>Tong lenh</span>
+                    <strong id="strategyTotalTrades">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Thang</span>
+                    <strong id="strategyWins">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Thua</span>
+                    <strong id="strategyLosses">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Ty le thang</span>
+                    <strong id="strategyWinRate">0%</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Chuoi thang dai nhat</span>
+                    <strong id="strategyLongestWin">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Chuoi thua dai nhat</span>
+                    <strong id="strategyLongestLoss">0</strong>
+                  </div>
+                </div>
+                <div class="analysis-chart" id="strategyChartWrapper">
+                  <canvas id="strategyChart" aria-label="Duong cong von" role="img"></canvas>
+                  <div class="analysis-empty" id="strategyEmptyState">Chon symbol va them giao dich de xem mo phong von.</div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -152,15 +216,22 @@
   </div>
       </div>
       <footer>
-        <button type="button" class="editor-btn danger" data-editor-action="delete">Xóa</button>
-        <button type="button" class="editor-btn ghost" data-editor-action="close">Đóng</button>
+       
       </footer>
     </div>
   </div>
-<script src="js/setup.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/setup.js" defer></script>
   <script src="js/logic.js" defer></script>
   <script src="js/render.js" defer></script>
   <script src="js/events.js" defer></script>
 </body>
 </html>
+
+
+
+
+
+
+
 

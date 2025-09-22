@@ -52,6 +52,15 @@
     dom.tradeEditor.setAttribute('aria-hidden', 'false');
   }
 
+  if (dom.clearDataBtn) {
+    dom.clearDataBtn.addEventListener('click', () => {
+      const cleared = logic.clearAllData();
+      if (cleared) {
+        render.renderEverything();
+      }
+    });
+  }
+
   dom.viewButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       logic.setActiveView(btn.dataset.view);
@@ -88,6 +97,20 @@
       }
     });
   });
+
+  if (Array.isArray(dom.strategyTabs)) {
+    dom.strategyTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const strategy = tab.dataset.strategy;
+        if (!strategy) {
+          return;
+        }
+        state.activeStrategy = strategy;
+        saveState(state);
+        render.renderStrategyAnalysis();
+      });
+    });
+  }
 
   dom.tradeHistoryEl.addEventListener('click', (event) => {
     const badge = event.target.closest('.trade-badge');
@@ -172,3 +195,4 @@
   render.renderEverything();
   logic.handleTradeModeChange();
 })(window.BacktestApp);
+

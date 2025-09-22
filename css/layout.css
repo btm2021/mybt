@@ -23,19 +23,20 @@
   text-transform: uppercase;
 }
 
-.status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
+.header-action-btn {
+  appearance: none;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  padding: 0.4rem 0.8rem;
   font-size: 0.8rem;
-  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 2px solid var(--muted);
+.header-action-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .layout {

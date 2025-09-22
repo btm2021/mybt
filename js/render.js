@@ -1,8 +1,10 @@
-﻿(function (app) {
+(function (app) {
   const state = app.state;
   const dom = app.dom;
   const logic = app.logic;
   const { toOneDecimal } = app.utils;
+  const { DEFAULT_CAPITAL } = app.constants;
+  let strategyChart = null;
   function escapeAttribute(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -35,10 +37,6 @@
         </article>
       `)
       .join("");
-
-    dom.globalWinRateNote.textContent = totals.trades
-      ? `Current win rate: ${toOneDecimal(winRate)}%. Minimum ROE counted as win: 2.5%.`
-      : "No trades recorded yet.";
   }
 
   function renderModeStats() {
@@ -218,7 +216,7 @@
       const badges = trades
         .map((trade, index) => {
           const number = index + 1;
-          const resultIcon = trade.result === 'win' ? '✔' : '✖';
+          const resultIcon = trade.result === 'win' ? '✔' : '✗';
           const classes = ['trade-badge', trade.result === 'win' ? 'win' : 'loss'];
           if (trade.isBigWin) {
             classes.push('big');
@@ -249,6 +247,146 @@
 
     dom.tradeHistoryEl.innerHTML = `<div class="trade-columns">${columns}</div>`;
   }
+
+  function renderStrategyAnalysis() {
+    if (!dom.strategyAnalysisPanel) {
+      return;
+    }
+
+    const statsEls = dom.strategyStats || {};
+    const strategy = state.activeStrategy || "fixed";
+
+    if (Array.isArray(dom.strategyTabs)) {
+      dom.strategyTabs.forEach((tab) => {
+        const isActive = tab.dataset.strategy === strategy;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+    }
+
+    const applyStats = (summary) => {
+      const data = summary || {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        winRate: 0,
+        longestWin: 0,
+        longestLoss: 0
+      };
+      if (statsEls.totalTrades) statsEls.totalTrades.textContent = data.total.toString();
+      if (statsEls.wins) statsEls.wins.textContent = data.wins.toString();
+      if (statsEls.losses) statsEls.losses.textContent = data.losses.toString();
+      if (statsEls.winRate) statsEls.winRate.textContent = `${toOneDecimal(data.winRate)}%`;
+      if (statsEls.longestWin) statsEls.longestWin.textContent = data.longestWin.toString();
+      if (statsEls.longestLoss) statsEls.longestLoss.textContent = data.longestLoss.toString();
+    };
+
+    const resetChart = (message) => {
+      if (strategyChart) {
+        strategyChart.destroy();
+        strategyChart = null;
+      }
+      if (dom.strategyChartWrapper) {
+        dom.strategyChartWrapper.classList.remove("has-data");
+      }
+      if (dom.strategyEmptyState) {
+        dom.strategyEmptyState.textContent = message;
+      }
+    };
+
+    const symbol = logic.getSelectedSymbol();
+    if (!symbol) {
+      applyStats(null);
+      resetChart("Chon symbol de bat dau.");
+      return;
+    }
+
+    const trades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    if (!trades.length) {
+      applyStats(null);
+      resetChart("Them giao dich de xem mo phong von.");
+      return;
+    }
+
+    const summary = logic.computeTradeBreakdown(trades);
+    applyStats(summary);
+
+    const simulation = logic.computeStrategySimulation(trades, strategy, {
+      baseCapital: Number.isFinite(symbol.baseCapital) ? symbol.baseCapital : DEFAULT_CAPITAL
+    });
+
+    const chartLib = window.Chart;
+    if (!chartLib || !dom.strategyChartCanvas) {
+      resetChart("Chart khong kha dung.");
+      return;
+    }
+
+    if (!strategyChart) {
+      strategyChart = new chartLib(dom.strategyChartCanvas, {
+        type: "line",
+        data: {
+          labels: simulation.labels,
+          datasets: [
+            {
+              label: "Von",
+              data: simulation.equity,
+              borderColor: "#111",
+              backgroundColor: "rgba(0, 0, 0, 0.08)",
+              borderWidth: 2,
+              tension: 0.18,
+              pointRadius: 2,
+              pointHoverRadius: 3,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => `Von: ${context.formattedValue}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: "#333",
+                font: { size: 10 }
+              },
+              grid: {
+                color: "rgba(0, 0, 0, 0.08)"
+              }
+            },
+            y: {
+              ticks: {
+                color: "#333",
+                font: { size: 10 }
+              },
+              grid: {
+                color: "rgba(0, 0, 0, 0.08)"
+              }
+            }
+          }
+        }
+      });
+    } else {
+      strategyChart.data.labels = simulation.labels;
+      strategyChart.data.datasets[0].data = simulation.equity;
+      strategyChart.update();
+    }
+
+    if (dom.strategyChartWrapper) {
+      dom.strategyChartWrapper.classList.add("has-data");
+    }
+    if (dom.strategyEmptyState) {
+      dom.strategyEmptyState.textContent = "";
+    }
+  }
+
   function renderEverything() {
     renderSummaryCards();
     renderModeStats();
@@ -257,6 +395,44 @@
     renderSymbolList();
     renderActiveSymbolInfo();
     renderTradeHistory();
+    renderStrategyAnalysis();
+    renderTradeAnalysis();
+  }
+
+  function renderTradeAnalysis() {
+    const statsEls = dom.analysisStats || {};
+    const symbol = logic.getSelectedSymbol();
+
+    const applyStats = (summary) => {
+      const data = summary || {
+        total: 0,
+        wins: 0,
+        losses: 0,
+        winRate: 0,
+        longestWin: 0,
+        longestLoss: 0
+      };
+      if (statsEls.totalTrades) statsEls.totalTrades.textContent = data.total.toString();
+      if (statsEls.wins) statsEls.wins.textContent = data.wins.toString();
+      if (statsEls.losses) statsEls.losses.textContent = data.losses.toString();
+      if (statsEls.winRate) statsEls.winRate.textContent = `${toOneDecimal(data.winRate)}%`;
+      if (statsEls.longestWin) statsEls.longestWin.textContent = data.longestWin.toString();
+      if (statsEls.longestLoss) statsEls.longestLoss.textContent = data.longestLoss.toString();
+    };
+
+    if (!symbol) {
+      applyStats(null);
+      return;
+    }
+
+    const trades = Array.isArray(symbol.trades) ? symbol.trades : [];
+    if (!trades.length) {
+      applyStats(null);
+      return;
+    }
+
+    const summary = logic.computeTradeBreakdown(trades);
+    applyStats(summary);
   }
 
   app.render = {
@@ -267,9 +443,18 @@
     renderSymbolList,
     renderActiveSymbolInfo,
     renderTradeHistory,
-    renderEverything
+    renderStrategyAnalysis,
+    renderEverything,
+    renderTradeAnalysis
   };
 })(window.BacktestApp);
+
+
+
+
+
+
+
 
 
 
