@@ -149,11 +149,12 @@
         const stats = logic.computeSymbolStats(symbol);
         return `
           <div class="symbol-item ${isActive ? 'active' : ''}" data-id="${symbol.id}">
-            <div>
+            <div class="symbol-item-main">
               <strong>${symbol.name}</strong>
               <div class="symbol-meta">${symbol.exchange} - ${symbol.timeframe}</div>
             </div>
-            <div class="symbol-meta">${stats.wins}/${stats.totalTrades}</div>
+            <div class="symbol-item-stats">${stats.wins}/${stats.totalTrades}</div>
+            <button type="button" class="symbol-delete-btn" data-symbol-id="${symbol.id}" title="Delete Symbol">&times;</button>
           </div>
         `;
       })
@@ -448,13 +449,3 @@
     renderTradeAnalysis
   };
 })(window.BacktestApp);
-
-
-
-
-
-
-
-
-
-

@@ -1,4 +1,4 @@
-﻿(function (app) {
+(function (app) {
   const state = app.state;
   const dom = app.dom;
   const logic = app.logic;
@@ -69,6 +69,15 @@
   });
 
   dom.symbolListEl.addEventListener('click', (event) => {
+    const deleteBtn = event.target.closest('.symbol-delete-btn');
+    if (deleteBtn) {
+      const symbolId = deleteBtn.dataset.symbolId;
+      if (logic.deleteSymbol(symbolId)) {
+        render.renderEverything();
+      }
+      return;
+    }
+
     const item = event.target.closest('.symbol-item');
     if (!item) return;
     state.selectedSymbolId = item.dataset.id;
@@ -195,4 +204,3 @@
   render.renderEverything();
   logic.handleTradeModeChange();
 })(window.BacktestApp);
-

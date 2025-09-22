@@ -170,6 +170,26 @@
     saveState(state);
     return true;
   }
+
+  function deleteSymbol(symbolId) {
+    const index = state.symbols.findIndex((symbol) => symbol.id === symbolId);
+    if (index === -1) {
+      return false;
+    }
+
+    const confirmed = confirm(`Are you sure you want to delete the symbol "${state.symbols[index].name}"? This will also delete all its trades.`);
+    if (!confirmed) {
+      return false;
+    }
+
+    state.symbols.splice(index, 1);
+    if (state.selectedSymbolId === symbolId) {
+      state.selectedSymbolId = state.symbols.length > 0 ? state.symbols[0].id : null;
+    }
+    saveState(state);
+    return true;
+  }
+
   function computeTotals() {
     const totals = {
       symbols: state.symbols.length,
@@ -396,6 +416,7 @@
     addTrade,
     deleteTrade,
     updateTrade,
+    deleteSymbol,
     computeTotals,
     computeSymbolStats,
     computeWinRate,
