@@ -45,6 +45,11 @@
     if (dom.tradeEditorBigWin) {
       dom.tradeEditorBigWin.checked = !!trade.isBigWin;
     }
+    if (Array.isArray(dom.tradeEditorSideInputs)) {
+      dom.tradeEditorSideInputs.forEach((input) => {
+        input.checked = input.value === (trade.side === 'short' ? 'short' : 'long');
+      });
+    }
     if (dom.tradeEditorMeta) {
       dom.tradeEditorMeta.textContent = `#${position} - ${modeLabel}${trade.notes ? ` - ${trade.notes}` : ''}`;
     }
@@ -116,6 +121,12 @@
     });
   });
 
+  if (dom.symbolIdeaInput) {
+    dom.symbolIdeaInput.addEventListener('change', async () => {
+      await logic.updateSymbolIdea(dom.symbolIdeaInput.value);
+    });
+  }
+
   if (Array.isArray(dom.strategyTabs)) {
     dom.strategyTabs.forEach((tab) => {
       tab.addEventListener('click', async () => {
@@ -127,6 +138,40 @@
         await saveState(state);
         render.renderStrategyAnalysis();
       });
+    });
+  }
+
+  if (dom.strategyTableBody) {
+    dom.strategyTableBody.addEventListener('click', (event) => {
+      const row = event.target.closest('tr[data-detail-index]');
+      if (!row) {
+        return;
+      }
+      const index = Number(row.dataset.detailIndex);
+      if (!Number.isInteger(index) || index < 0) {
+        return;
+      }
+      render.showStrategyTradeDetail(index);
+    });
+  }
+
+  const closeStrategyDetail = () => {
+    render.hideStrategyTradeDetail();
+  };
+
+  if (dom.strategyDetailCloseBtn) {
+    dom.strategyDetailCloseBtn.addEventListener('click', closeStrategyDetail);
+  }
+
+  if (dom.strategyDetailDismissBtn) {
+    dom.strategyDetailDismissBtn.addEventListener('click', closeStrategyDetail);
+  }
+
+  if (dom.strategyDetailModal) {
+    dom.strategyDetailModal.addEventListener('click', (event) => {
+      if (event.target === dom.strategyDetailModal) {
+        closeStrategyDetail();
+      }
     });
   }
 
@@ -231,9 +276,38 @@
     });
   }
 
+  if (Array.isArray(dom.tradeEditorSideInputs)) {
+    dom.tradeEditorSideInputs.forEach((input) => {
+      input.addEventListener('change', async () => {
+        if (!input.checked) {
+          return;
+        }
+        if (!editingTradeId) {
+          closeTradeEditor();
+          return;
+        }
+
+        const newSide = input.value === 'short' ? 'short' : 'long';
+        const updated = await logic.updateTrade(editingTradeId, {
+          side: newSide
+        });
+
+        if (updated) {
+          render.renderEverything();
+          openTradeEditor(editingTradeId);
+        }
+      });
+    });
+  }
+
   window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && dom.tradeEditor && dom.tradeEditor.classList.contains('is-open')) {
-      closeTradeEditor();
+    if (event.key === 'Escape') {
+      if (dom.tradeEditor && dom.tradeEditor.classList.contains('is-open')) {
+        closeTradeEditor();
+      }
+      if (dom.strategyDetailModal && dom.strategyDetailModal.classList.contains('is-open')) {
+        render.hideStrategyTradeDetail();
+      }
     }
   });
 

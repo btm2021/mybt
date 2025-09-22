@@ -14,15 +14,27 @@
           app.firebaseService.getSymbols(),
           app.firebaseService.getUserSettings()
         ]);
-        
+
+        const normalizedSymbols = (symbols || []).map((symbol) => ({
+          ...symbol,
+          idea: typeof symbol.idea === 'string' ? symbol.idea : '',
+          trades: Array.isArray(symbol.trades) ? symbol.trades : []
+        }));
+
         // Load trades for each symbol
         app.loadingManager.updateMessage('Đang tải trades...');
-        for (const symbol of symbols) {
-          symbol.trades = await app.firebaseService.getTradesForSymbol(symbol.id);
+        for (const symbol of normalizedSymbols) {
+          const trades = await app.firebaseService.getTradesForSymbol(symbol.id);
+          symbol.trades = Array.isArray(trades)
+            ? trades.map((trade) => ({
+              ...trade,
+              side: trade.side === 'short' ? 'short' : 'long'
+            }))
+            : [];
         }
-        
+
         return {
-          symbols: symbols || [],
+          symbols: normalizedSymbols,
           selectedSymbolId: settings.selectedSymbolId || null,
           activeView: settings.activeView || "dashboard",
           activeStrategy: settings.activeStrategy || "fixed"
@@ -102,6 +114,11 @@
     modeStatsTableBody: document.querySelector("#modeStatsTable tbody"),
     symbolStatsEl: document.getElementById("symbolStats"),
     capitalStrategiesEl: document.getElementById("capitalStrategies"),
+    dashboardInsightsEl: document.getElementById("dashboardInsights"),
+    resultsBreakdownCanvas: document.getElementById("resultsBreakdownChart"),
+    modeWinRateCanvas: document.getElementById("modeWinRateChart"),
+    bigWinShareCanvas: document.getElementById("bigWinShareChart"),
+    sideWinRateCanvas: document.getElementById("sideWinRateChart"),
     clearDataBtn: document.getElementById("clearDataBtn"),
     symbolForm: document.getElementById("symbolForm"),
     symbolNameInput: document.getElementById("symbolName"),
@@ -111,6 +128,7 @@
     symbolCommentInput: document.getElementById("symbolComment"),
     symbolListEl: document.getElementById("symbolList"),
     activeSymbolInfo: document.getElementById("activeSymbolInfo"),
+    symbolIdeaInput: document.getElementById("symbolIdeaInput"),
     tradeForm: document.getElementById("tradeForm"),
     tradeHistoryEl: document.getElementById("tradeHistory"),
     strategyAnalysisPanel: document.getElementById("strategyAnalysisPanel"),
@@ -131,10 +149,28 @@
     strategyTable: document.getElementById("strategyTable"),
     strategyTableBody: document.getElementById("strategyTableBody"),
     strategyTableEmptyState: document.getElementById("strategyTableEmptyState"),
+    strategyDetailModal: document.getElementById("strategyTradeModal"),
+    strategyDetailCloseBtn: document.getElementById("strategyTradeModalClose"),
+    strategyDetailDismissBtn: document.getElementById("strategyTradeModalDismiss"),
+    strategyDetailFields: {
+      title: document.getElementById("strategyDetailTitle"),
+      result: document.getElementById("strategyDetailResult"),
+      side: document.getElementById("strategyDetailSide"),
+      stake: document.getElementById("strategyDetailStake"),
+      pnl: document.getElementById("strategyDetailPnL"),
+      rr: document.getElementById("strategyDetailRR"),
+      roe: document.getElementById("strategyDetailROE"),
+      mode: document.getElementById("strategyDetailMode"),
+      indicator: document.getElementById("strategyDetailIndicator"),
+      timestamp: document.getElementById("strategyDetailTime"),
+      notes: document.getElementById("strategyDetailNotes")
+    },
     analysisStats: {
       totalTrades: document.getElementById("analysisTotalTrades"),
       wins: document.getElementById("analysisWins"),
       losses: document.getElementById("analysisLosses"),
+      longShort: document.getElementById("analysisLongShort"),
+      longShortWin: document.getElementById("analysisLongShortWin"),
       winRate: document.getElementById("analysisWinRate"),
       return: document.getElementById("analysisReturn"),
       sharpe: document.getElementById("analysisSharpe"),
@@ -146,11 +182,13 @@
     tradeEditor: document.getElementById("tradeEditor"),
     tradeEditorMeta: document.getElementById("tradeEditorMeta"),
     tradeEditorBigWin: document.getElementById("tradeEditorBigWin"),
+    tradeEditorSideInputs: Array.from(document.querySelectorAll('input[name="tradeEditorSide"]')),
     backtestModeSelect: document.getElementById("backtestMode"),
     singleIndicatorGroup: document.getElementById("singleIndicatorGroup"),
     multiIndicatorGroup: document.getElementById("multiIndicatorGroup"),
     primaryIndicatorInput: document.getElementById("primaryIndicator"),
     indicatorComboInput: document.getElementById("indicatorCombo"),
+    tradeSideInputs: Array.from(document.querySelectorAll('input[name="tradeSide"]')),
     roeInput: document.getElementById("roeInput"),
     notesInput: document.getElementById("notesInput"),
     bigWinToggle: document.getElementById("bigWinToggle"),
@@ -170,8 +208,3 @@
     formatTimestamp
   };
 })(window.BacktestApp);
-
-
-
-
-

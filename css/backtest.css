@@ -44,7 +44,7 @@
 .trade-badge {
   width: 1.8rem;
   height: 1.8rem;
-  border: 1px solid var(--accent);
+  border: 3px solid var(--accent);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -65,6 +65,14 @@
 
 .trade-badge.big {
   background: #96d476;
+}
+
+.trade-badge.long-side {
+  border-color: #1b8a3a;
+}
+
+.trade-badge.short-side {
+  border-color: #b22525;
 }
 
 .trade-badge:hover,
@@ -103,6 +111,40 @@
   margin-bottom: 0.2rem;
 }
 
+.symbol-idea-group label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.trade-side-group {
+  border: 1.5px solid var(--accent);
+  padding: 0.6rem;
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.trade-side-group legend {
+  font-size: 0.65rem;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0.25rem;
+}
+
+.trade-side-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
 .backtest-panel form input,
 .backtest-panel form select,
 .backtest-panel form textarea {
@@ -119,6 +161,19 @@
 .backtest-panel form textarea {
   min-height: 60px;
   resize: vertical;
+}
+
+.symbol-idea-group textarea {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  min-height: 90px;
+  resize: vertical;
+  margin-bottom: 0.6rem;
 }
 
 .form-action {
@@ -309,6 +364,28 @@
   color: var(--muted);
 }
 
+.trade-editor-row.side-group {
+  border: 1px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  gap: 1.2rem;
+}
+
+.trade-editor-row.side-group legend {
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+  padding: 0 0.25rem;
+}
+
+.trade-editor-row.side-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
 .editor-buttons {
   display: flex;
   gap: 0.4rem;
@@ -437,11 +514,16 @@
   display: none;
 }
 
-.backtest-panel .note {
-  display: flex;
+.backtest-panel label.note {
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.backtest-panel label.note input[type="checkbox"] {
+  margin: 0;
 }
 
 .symbol-item-main {
@@ -513,6 +595,43 @@
   text-align: right;
   border-bottom: 1px solid var(--highlight);
   font-family: inherit;
+}
+
+.strategy-table td.side-cell {
+  text-align: center;
+}
+
+.strategy-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.strategy-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.side-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  border: 2px solid transparent;
+}
+
+.side-badge.long {
+  background: rgba(27, 138, 58, 0.1);
+  border-color: #1b8a3a;
+  color: #1b8a3a;
+}
+
+.side-badge.short {
+  background: rgba(178, 37, 37, 0.1);
+  border-color: #b22525;
+  color: #b22525;
 }
 
 .strategy-table th {
@@ -805,4 +924,108 @@ de Badge Blink Animation */
 #strategyCurrentMode {
   color: var(--accent);
   font-weight: 600;
+}
+
+.strategy-detail-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 1rem;
+}
+
+.strategy-detail-modal.is-open {
+  display: flex;
+}
+
+.strategy-detail-card {
+  background: var(--panel);
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.strategy-detail-card header,
+.strategy-detail-card footer {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+  border-bottom: 1px solid var(--highlight);
+}
+
+.strategy-detail-card footer {
+  border-top: 1px solid var(--highlight);
+  border-bottom: none;
+  justify-content: flex-end;
+}
+
+.strategy-detail-card header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.strategy-detail-close {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.strategy-detail-body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.detail-row strong {
+  text-transform: uppercase;
+  letter-spacing: 0.04rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.detail-notes {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  background: var(--bg);
+  border: 1px solid var(--highlight);
+  padding: 0.75rem;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.detail-footer-btn {
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  padding: 0.45rem 0.8rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04rem;
+  cursor: pointer;
+}
+
+.detail-footer-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }

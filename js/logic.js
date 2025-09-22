@@ -49,6 +49,7 @@
       timeframe: payload.timeframe.trim(),
       indicators: payload.indicators,
       comment: payload.comment,
+      idea: typeof payload.idea === 'string' ? payload.idea : '',
       baseCapital: DEFAULT_CAPITAL,
       trades: [],
       createdAt: new Date().toISOString()
@@ -77,7 +78,8 @@
       exchange,
       timeframe,
       indicators,
-      comment: comment.trim()
+      comment: comment.trim(),
+      idea: ''
     });
 
     return app.loadingManager.withLoading(async () => {
@@ -108,6 +110,33 @@
     }
   }
 
+  async function updateSymbolIdea(newIdeaRaw) {
+    const symbol = getSelectedSymbol();
+    if (!symbol) {
+      return false;
+    }
+
+    const normalizedIdea = typeof newIdeaRaw === 'string'
+      ? newIdeaRaw.replace(/\r\n/g, '\n')
+      : '';
+
+    if (symbol.idea === normalizedIdea) {
+      return true;
+    }
+
+    symbol.idea = normalizedIdea;
+    symbol.updatedAt = new Date().toISOString();
+
+    try {
+      await upsertStateSymbol(symbol);
+      return true;
+    } catch (error) {
+      console.error('Error updating symbol idea:', error);
+      alert('Lưu ý tưởng thất bại. Vui lòng thử lại.');
+      return false;
+    }
+  }
+
   async function addTrade(result) {
     const symbol = getSelectedSymbol();
     if (!symbol) {
@@ -119,6 +148,10 @@
     const indicator = dom.primaryIndicatorInput.value.trim();
     const combo = dom.indicatorComboInput.value.trim();
     const roe = parseFloat(dom.roeInput.value);
+    const sideInput = Array.isArray(dom.tradeSideInputs)
+      ? dom.tradeSideInputs.find((input) => input.checked)
+      : null;
+    const side = sideInput ? sideInput.value : 'long';
 
     if (result === "win" && (!Number.isFinite(roe) || roe < 2.5)) {
       alert("ROE must be at least 2.5% to mark a win.");
@@ -137,6 +170,7 @@
       combo: mode !== "single" ? combo : "",
       notes: dom.notesInput.value.trim(),
       roe: Number.isFinite(roe) ? roe : 0,
+      side: side === 'short' ? 'short' : 'long',
       isBigWin: isBigWin,
       timestamp: new Date().toISOString()
     };
@@ -209,6 +243,11 @@
       }
       if (typeof changes.isBigWin === 'boolean') {
         trade.isBigWin = changes.isBigWin;
+      }
+      if (typeof changes.side === 'string') {
+        const normalizedSide = changes.side === 'short' ? 'short' : 'long';
+        trade.side = normalizedSide;
+        changes.side = normalizedSide;
       }
     }
 
@@ -367,7 +406,11 @@
       losses: 0,
       winRate: 0,
       longestWin: 0,
-      longestLoss: 0
+      longestLoss: 0,
+      longTrades: 0,
+      shortTrades: 0,
+      longWins: 0,
+      shortWins: 0
     };
     let currentWin = 0;
     let currentLoss = 0;
@@ -377,8 +420,19 @@
         return;
       }
       summary.total += 1;
+      const side = trade.side === 'short' ? 'short' : 'long';
+      if (side === 'short') {
+        summary.shortTrades += 1;
+      } else {
+        summary.longTrades += 1;
+      }
       if (trade.result === "win") {
         summary.wins += 1;
+        if (side === 'short') {
+          summary.shortWins += 1;
+        } else {
+          summary.longWins += 1;
+        }
         currentWin += 1;
         currentLoss = 0;
         if (currentWin > summary.longestWin) {
@@ -629,6 +683,7 @@
     createSymbol,
     handleSymbolSubmit,
     handleTradeModeChange,
+    updateSymbolIdea,
     addTrade,
     deleteTrade,
     updateTrade,

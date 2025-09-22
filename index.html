@@ -27,19 +27,19 @@
           <h2>Symbol manager</h2>
           <form id="symbolForm" class="sidebar-form">
             <label for="symbolName">Symbol name</label>
-            <input id="symbolName" type="text" placeholder="e.g. BTCUSDT" required>
+            <input  style="text-transform: uppercase;" autocomplete="off" id="symbolName" type="text" placeholder="e.g. BTCUSDT" required>
 
             <label for="symbolExchange">Exchange</label>
-            <input id="symbolExchange" type="text" placeholder="e.g. Binance" required>
+            <input style="text-transform: uppercase;" id="symbolExchange" type="text" placeholder="e.g. Binance" required>
 
             <label for="symbolTimeframe">Timeframe</label>
-            <input id="symbolTimeframe" type="text" placeholder="e.g. 1H" required>
+            <input  style="text-transform: uppercase;" autocomplete="off" id="symbolTimeframe" type="text" placeholder="e.g. 1H" required>
 
             <label for="symbolIndicators">Indicator list</label>
-            <textarea id="symbolIndicators" placeholder="One indicator per line, optional params"></textarea>
+            <textarea autocomplete="off" id="symbolIndicators" placeholder="One indicator per line, optional params"></textarea>
 
             <label for="symbolComment">Parameters or comment</label>
-            <textarea id="symbolComment" placeholder="Strategy notes, DCA plan, etc."></textarea>
+            <textarea autocomplete="off" id="symbolComment" placeholder="Strategy notes, DCA plan, etc."></textarea>
 
             <button type="submit" class="form-action">Create symbol</button>
           </form>
@@ -53,6 +53,7 @@
             <p>Đang tải dữ liệu từ Firebase...</p>
           </div>
           <div class="cards-grid" id="summaryCards"></div>
+          <br/>
           <div class="stats-section">
             <h2>Global statistics</h2>
             <div id="globalWinRateNote" class="note"></div>
@@ -78,12 +79,41 @@
               <div id="capitalStrategies"></div>
             </details>
           </div>
+          <section class="dashboard-insights">
+            <h2>Performance insights</h2>
+            <div class="insights-grid" id="dashboardInsights"></div>
+          </section>
+          <section class="dashboard-charts">
+            <h2>Visual analytics</h2>
+            <div class="charts-grid">
+              <article class="chart-card">
+                <header>Results Breakdown</header>
+                <canvas id="resultsBreakdownChart" aria-label="Biểu đồ tỷ lệ thắng thua" role="img"></canvas>
+              </article>
+              <article class="chart-card">
+                <header>Mode Win Rate</header>
+                <canvas id="modeWinRateChart" aria-label="Win rate theo chế độ" role="img"></canvas>
+              </article>
+              <article class="chart-card">
+                <header>Big Win Share</header>
+                <canvas id="bigWinShareChart" aria-label="Tỷ lệ big win" role="img"></canvas>
+              </article>
+              <article class="chart-card">
+                <header>Side Win Rate</header>
+                <canvas id="sideWinRateChart" aria-label="Tỷ lệ thắng theo side" role="img"></canvas>
+              </article>
+            </div>
+          </section>
         </section>
         <section id="backtestView" class="view">
           <div class="backtest-columns">
             <div class="panel backtest-panel">
               <h2>Backtest</h2>
               <div id="activeSymbolInfo"></div>
+              <div class="symbol-idea-group">
+                <label for="symbolIdeaInput">Symbol idea</label>
+                <textarea id="symbolIdeaInput" rows="12" placeholder="Ghi chú nhanh cho symbol này..."></textarea>
+              </div>
               <form id="tradeForm">
                 <label for="backtestMode">Backtest mode</label>
                 <select id="backtestMode">
@@ -94,7 +124,7 @@
 
                 <div id="singleIndicatorGroup">
                   <label for="primaryIndicator">Main indicator (single)</label>
-                  <input id="primaryIndicator" type="text" placeholder="e.g. RSI 14">
+                  <input autocomplete="off" id="primaryIndicator" type="text" placeholder="e.g. RSI 14">
                 </div>
 
                 <div id="multiIndicatorGroup" style="display:none;">
@@ -102,13 +132,25 @@
                   <textarea id="indicatorCombo" placeholder="List combined indicators"></textarea>
                 </div>
 
-                <label for="roeInput">ROE (%) - minimum for Win: 2.5%</label>
-                <input id="roeInput" type="number" step="0.1" value="2.5">
+                <fieldset class="trade-side-group">
+                  <legend>Side</legend>
+                  <label>
+                    <input autocomplete="off" type="radio" name="tradeSide" value="long" checked>
+                    Long
+                  </label>
+                  <label>
+                    <input autocomplete="off" type="radio" name="tradeSide" value="short">
+                    Short
+                  </label>
+                </fieldset>
+
+              <label for="roeInput">ROE (%) - minimum for Win: 2.5%</label>
+              <input  autocomplete="off" id="roeInput" type="number" step="0.1" value="2.5">
 
                 <label for="notesInput">Trade notes</label>
                 <textarea id="notesInput" placeholder="Entry trigger, scaling plan..."></textarea>
 
-                <label class="note"><input type="checkbox" id="bigWinToggle"> Mark as Big Win</label>
+                <label class="note"><input autocomplete="off" type="checkbox" id="bigWinToggle"> Mark as Big Win</label>
 
                 <div class="button-row">
                   <button type="button" class="win" data-result="win">Add Win</button>
@@ -135,6 +177,14 @@
                   <div class="summary-item">
                     <span>Losses</span>
                     <strong id="analysisLosses">0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Long / Short</span>
+                    <strong id="analysisLongShort">0 / 0</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>%Win Long / %Win Short</span>
+                    <strong id="analysisLongShortWin">0% / 0%</strong>
                   </div>
                   <div class="summary-item">
                     <span>Win Rate</span>
@@ -219,6 +269,7 @@
                         <tr>
                           <th>#</th>
                           <th>Ket qua</th>
+                          <th>Side</th>
                           <th>Von vao</th>
                           <th>PnL</th>
                           <th>Ti le RR</th>
@@ -272,6 +323,17 @@
             <button type="button" class="editor-btn loss" data-editor-action="set-loss">&#10006; Loss</button>
           </div>
         </div>
+        <fieldset class="trade-editor-row side-group">
+          <legend>Side</legend>
+          <label>
+            <input type="radio" name="tradeEditorSide" value="long">
+            Long
+          </label>
+          <label>
+            <input type="radio" name="tradeEditorSide" value="short">
+            Short
+          </label>
+        </fieldset>
         <label class="trade-editor-row toggle">
           <input type="checkbox" id="tradeEditorBigWin">
           <span>Mark as big win</span>
@@ -281,6 +343,33 @@
       <footer>
         <button type="button" class="editor-btn danger" data-editor-action="delete">Delete</button>
         <button type="button" class="editor-btn ghost" data-editor-action="close">Close</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="strategyTradeModal" class="strategy-detail-modal" aria-hidden="true">
+    <div class="strategy-detail-card" role="dialog" aria-modal="true">
+      <header>
+        <h3 id="strategyDetailTitle">Trade detail</h3>
+        <button type="button" id="strategyTradeModalClose" class="strategy-detail-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="strategy-detail-body" id="strategyTradeModalBody">
+        <div class="detail-row"><strong>Result</strong><span id="strategyDetailResult">-</span></div>
+        <div class="detail-row"><strong>Side</strong><span id="strategyDetailSide">-</span></div>
+        <div class="detail-row"><strong>Stake</strong><span id="strategyDetailStake">-</span></div>
+        <div class="detail-row"><strong>PnL</strong><span id="strategyDetailPnL">-</span></div>
+        <div class="detail-row"><strong>RR</strong><span id="strategyDetailRR">-</span></div>
+        <div class="detail-row"><strong>ROE</strong><span id="strategyDetailROE">-</span></div>
+        <div class="detail-row"><strong>Mode</strong><span id="strategyDetailMode">-</span></div>
+        <div class="detail-row"><strong>Indicator</strong><span id="strategyDetailIndicator">-</span></div>
+        <div class="detail-row"><strong>Timestamp</strong><span id="strategyDetailTime">-</span></div>
+        <div>
+          <strong style="display:block; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04rem; color: var(--muted);">Trade notes</strong>
+          <div class="detail-notes" id="strategyDetailNotes">Không có ghi chú.</div>
+        </div>
+      </div>
+      <footer>
+        <button type="button" id="strategyTradeModalDismiss" class="detail-footer-btn">Close</button>
       </footer>
     </div>
   </div>

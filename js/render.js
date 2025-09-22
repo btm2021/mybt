@@ -2,9 +2,14 @@
   const state = app.state;
   const dom = app.dom;
   const logic = app.logic;
-  const { toOneDecimal } = app.utils;
+  const { toOneDecimal, formatTimestamp } = app.utils;
   const { DEFAULT_CAPITAL } = app.constants;
   let strategyChart = null;
+  let resultsBreakdownChart = null;
+  let modeWinRateChart = null;
+  let bigWinShareChart = null;
+  let sideWinRateChart = null;
+  let strategyTableDetails = [];
   function escapeAttribute(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -137,6 +142,397 @@
       .join("");
   }
 
+  function destroyDashboardCharts() {
+    if (resultsBreakdownChart) {
+      resultsBreakdownChart.destroy();
+      resultsBreakdownChart = null;
+    }
+    if (modeWinRateChart) {
+      modeWinRateChart.destroy();
+      modeWinRateChart = null;
+    }
+    if (bigWinShareChart) {
+      bigWinShareChart.destroy();
+      bigWinShareChart = null;
+    }
+    if (sideWinRateChart) {
+      sideWinRateChart.destroy();
+      sideWinRateChart = null;
+    }
+  }
+
+  function renderDashboardInsights() {
+    const insightsEl = dom.dashboardInsightsEl;
+    if (!insightsEl) {
+      return;
+    }
+
+    if (!state.symbols.length) {
+      insightsEl.innerHTML = '<div class="empty-state">Create a symbol to see insights.</div>';
+      destroyDashboardCharts();
+      return;
+    }
+
+    const allTrades = [];
+    state.symbols.forEach((symbol) => {
+      if (!Array.isArray(symbol.trades)) {
+        return;
+      }
+      symbol.trades.forEach((trade) => {
+        allTrades.push({
+          ...trade,
+          _symbol: symbol
+        });
+      });
+    });
+
+    if (!allTrades.length) {
+      insightsEl.innerHTML = '<div class="empty-state">Add trades to unlock insights.</div>';
+      destroyDashboardCharts();
+      return;
+    }
+
+    const wins = allTrades.filter((trade) => trade.result === 'win');
+    const losses = allTrades.filter((trade) => trade.result === 'loss');
+    const bigWins = wins.filter((trade) => trade.isBigWin);
+
+    let longTradesCount = 0;
+    let shortTradesCount = 0;
+    let longWinsCount = 0;
+    let shortWinsCount = 0;
+
+    allTrades.forEach((trade) => {
+      const side = trade.side === 'short' ? 'short' : 'long';
+      if (side === 'short') {
+        shortTradesCount += 1;
+        if (trade.result === 'win') {
+          shortWinsCount += 1;
+        }
+      } else {
+        longTradesCount += 1;
+        if (trade.result === 'win') {
+          longWinsCount += 1;
+        }
+      }
+    });
+
+    const longWinRate = longTradesCount ? logic.computeWinRate(longWinsCount, longTradesCount) : 0;
+    const shortWinRate = shortTradesCount ? logic.computeWinRate(shortWinsCount, shortTradesCount) : 0;
+
+    const avgWinRoe = wins.length
+      ? wins.reduce((sum, trade) => sum + (Number(trade.roe) || 0), 0) / wins.length
+      : 0;
+    const avgLossRoe = losses.length
+      ? losses.reduce((sum, trade) => sum + (Number(trade.roe) || 0), 0) / losses.length
+      : 0;
+
+    const performanceBySymbol = state.symbols
+      .map((symbol) => {
+        const stats = logic.computeSymbolStats(symbol);
+        return {
+          symbol,
+          stats,
+          winRate: logic.computeWinRate(stats.wins, stats.totalTrades)
+        };
+      })
+      .filter((entry) => entry.stats.totalTrades > 0);
+
+    performanceBySymbol.sort((a, b) => b.winRate - a.winRate);
+    const bestWinRate = performanceBySymbol[0] || null;
+
+    performanceBySymbol.sort((a, b) => b.stats.totalTrades - a.stats.totalTrades);
+    const mostActive = performanceBySymbol[0] || null;
+
+    const totals = logic.computeTotals();
+    const bigWinRatio = wins.length ? (bigWins.length / wins.length) * 100 : 0;
+
+    const insights = [];
+
+    if (bestWinRate) {
+      insights.push({
+        title: 'Best Win Rate',
+        value: `${bestWinRate.symbol.name}`,
+        note: `${toOneDecimal(bestWinRate.winRate)}% win · ${bestWinRate.stats.totalTrades} trades`
+      });
+    }
+
+    if (mostActive) {
+      insights.push({
+        title: 'Most Active Symbol',
+        value: `${mostActive.symbol.name}`,
+        note: `${mostActive.stats.totalTrades} trades · ${mostActive.stats.wins} wins`
+      });
+    }
+
+    insights.push({
+      title: 'Avg Win ROE',
+      value: `${avgWinRoe >= 0 ? '+' : ''}${toOneDecimal(avgWinRoe)}%`,
+      note: wins.length ? `${wins.length} wins recorded` : 'No wins yet'
+    });
+
+    insights.push({
+      title: 'Avg Loss ROE',
+      value: `${avgLossRoe >= 0 ? '+' : ''}${toOneDecimal(avgLossRoe)}%`,
+      note: losses.length ? `${losses.length} losses recorded` : 'No losses yet'
+    });
+
+    insights.push({
+      title: 'Big Win Share',
+      value: `${toOneDecimal(bigWinRatio)}%`,
+      note: wins.length ? `${bigWins.length} of ${wins.length} wins` : 'No wins yet'
+    });
+
+    insights.push({
+      title: 'Long vs Short Trades',
+      value: `${longTradesCount} / ${shortTradesCount}`,
+      note: 'Long / Short volume'
+    });
+
+    insights.push({
+      title: 'Long Win% / Short Win%',
+      value: `${toOneDecimal(longWinRate)}% / ${toOneDecimal(shortWinRate)}%`,
+      note: `Wins: ${longWinsCount} / ${shortWinsCount}`
+    });
+
+    insightsEl.innerHTML = insights
+      .map((insight) => `
+        <article class="insight-card">
+          <h3>${insight.title}</h3>
+          <strong>${insight.value}</strong>
+          <small>${insight.note}</small>
+        </article>
+      `)
+      .join("");
+
+    const chartLib = window.Chart;
+    if (!chartLib) {
+      return;
+    }
+
+    const neutralPalette = {
+      dark: '#111111',
+      mid: '#4d4d4d',
+      light: '#dcdcdc'
+    };
+
+    if (dom.resultsBreakdownCanvas) {
+      const dataset = [wins.length, losses.length, bigWins.length];
+
+      if (!resultsBreakdownChart) {
+        resultsBreakdownChart = new chartLib(dom.resultsBreakdownCanvas, {
+          type: 'bar',
+          data: {
+            labels: ['Wins', 'Losses', 'Big Wins'],
+            datasets: [
+              {
+                data: dataset,
+                backgroundColor: [neutralPalette.dark, neutralPalette.mid, neutralPalette.light],
+                borderColor: neutralPalette.dark,
+                borderWidth: 1.5,
+                hoverBackgroundColor: [neutralPalette.dark, '#333333', '#bfbfbf']
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#111',
+                titleColor: '#fff',
+                bodyColor: '#fff'
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: neutralPalette.dark }
+              },
+              y: {
+                beginAtZero: true,
+                ticks: { color: neutralPalette.dark }
+              }
+            }
+          }
+        });
+      } else {
+        resultsBreakdownChart.data.datasets[0].data = dataset;
+        resultsBreakdownChart.update();
+      }
+    }
+
+    if (dom.modeWinRateCanvas) {
+      const modeEntries = Object.entries(totals.mode || {});
+      const labels = modeEntries.map(([key]) => ({
+        key,
+        label: key === 'single' ? 'Single' : key === 'multi' ? 'Multi' : key === 'combi' ? 'Combi' : key
+      }));
+      const winRates = modeEntries.map(([_, stats]) => logic.computeWinRate(stats.wins, stats.trades));
+
+      if (!modeWinRateChart) {
+        modeWinRateChart = new chartLib(dom.modeWinRateCanvas, {
+          type: 'line',
+          data: {
+            labels: labels.map((item) => item.label),
+            datasets: [
+              {
+                label: 'Win %',
+                data: winRates,
+                borderColor: neutralPalette.dark,
+                backgroundColor: '#ffffff',
+                borderWidth: 2,
+                pointRadius: 4,
+                pointBackgroundColor: neutralPalette.dark,
+                tension: 0.25
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                labels: {
+                  color: neutralPalette.dark
+                }
+              },
+              tooltip: {
+                backgroundColor: '#111',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                callbacks: {
+                  label: (ctx) => `Win rate: ${toOneDecimal(ctx.parsed.y)}%`
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: neutralPalette.dark }
+              },
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  color: neutralPalette.dark,
+                  callback: (value) => `${value}%`
+                }
+              }
+            }
+          }
+        });
+      } else {
+        modeWinRateChart.data.labels = labels.map((item) => item.label);
+        modeWinRateChart.data.datasets[0].data = winRates;
+        modeWinRateChart.update();
+      }
+    }
+
+    if (dom.bigWinShareCanvas) {
+      const shareData = [bigWins.length, Math.max(wins.length - bigWins.length, 0)];
+
+      if (!bigWinShareChart) {
+        bigWinShareChart = new chartLib(dom.bigWinShareCanvas, {
+          type: 'doughnut',
+          data: {
+            labels: ['Big Wins', 'Regular Wins'],
+            datasets: [
+              {
+                data: shareData,
+                backgroundColor: [neutralPalette.dark, neutralPalette.light],
+                borderColor: neutralPalette.dark,
+                borderWidth: 1.5
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: {
+                labels: {
+                  color: neutralPalette.dark
+                }
+              },
+              tooltip: {
+                backgroundColor: '#111',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                callbacks: {
+                  label: (ctx) => {
+                    const total = ctx.dataset.data.reduce((sum, value) => sum + value, 0);
+                    const value = ctx.parsed;
+                    const percent = total ? ((value / total) * 100).toFixed(1) : '0.0';
+                    return `${ctx.label}: ${value} (${percent}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        bigWinShareChart.data.datasets[0].data = shareData;
+        bigWinShareChart.update();
+      }
+    }
+
+    if (dom.sideWinRateCanvas) {
+      const sideLabels = ['Long', 'Short'];
+      const dataSet = [longWinRate, shortWinRate];
+
+      if (!sideWinRateChart) {
+        sideWinRateChart = new chartLib(dom.sideWinRateCanvas, {
+          type: 'bar',
+          data: {
+            labels: sideLabels,
+            datasets: [
+              {
+                data: dataSet,
+                backgroundColor: [neutralPalette.dark, neutralPalette.mid],
+                borderColor: [neutralPalette.dark, neutralPalette.mid],
+                borderWidth: 1.5
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#111',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                callbacks: {
+                  label: (ctx) => `${ctx.label}: ${toOneDecimal(ctx.parsed.y)}%`
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  color: neutralPalette.dark,
+                  callback: (value) => `${value}%`
+                },
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.08)'
+                }
+              },
+              x: {
+                ticks: {
+                  color: neutralPalette.dark
+                },
+                grid: {
+                  display: false
+                }
+              }
+            }
+          }
+        });
+      } else {
+        sideWinRateChart.data.datasets[0].data = dataSet;
+        sideWinRateChart.update();
+      }
+    }
+  }
+
   function renderSymbolList() {
     if (!state.symbols.length) {
       dom.symbolListEl.innerHTML = '<div class="empty-state">Create a symbol to begin.</div>';
@@ -169,6 +565,10 @@
       dom.tradeForm.querySelectorAll("input, textarea, select, button").forEach((el) => {
         el.disabled = true;
       });
+      if (dom.symbolIdeaInput) {
+        dom.symbolIdeaInput.value = "";
+        dom.symbolIdeaInput.disabled = true;
+      }
       return;
     }
 
@@ -176,16 +576,18 @@
     dom.tradeForm.querySelectorAll("input, textarea, select, button").forEach((el) => {
       el.disabled = false;
     });
+    if (dom.symbolIdeaInput) {
+      dom.symbolIdeaInput.disabled = false;
+      dom.symbolIdeaInput.value = symbol.idea || "";
+    }
 
     const stats = logic.computeSymbolStats(symbol);
     const winRate = logic.computeWinRate(stats.wins, stats.totalTrades);
 
     dom.activeSymbolInfo.innerHTML = `
       <div class="active-symbol">
-        <h3>${symbol.name}</h3>
-        <div class="symbol-meta">${symbol.exchange} - ${symbol.timeframe}</div>
-        <div class="note">Default capital: ${symbol.baseCapital.toFixed(2)} USDT</div>
-        <div class="note">Current win rate: ${toOneDecimal(winRate)}%</div>
+        <h3 class="symbol-title">
+        <a href="https://vn.tradingview.com/chart/JMJyafji/?symbol=BINANCE%3A${symbol.name.toUpperCase()}" target="_blank">${String(symbol.name).toUpperCase()}</a> <span class="symbol-meta">${symbol.exchange} - ${symbol.timeframe}</span></h3>
         ${symbol.indicators.length ? `
           <div><strong>Indicators:</strong>
             <div class="tag-list">${symbol.indicators.map((indicator) => `<span class="tag">${indicator}</span>`).join("")}</div>
@@ -224,7 +626,13 @@
           if (trade.isBigWin) {
             classes.push('big');
           }
+          if (trade.side === 'short') {
+            classes.push('short-side');
+          } else {
+            classes.push('long-side');
+          }
           const tooltipParts = [`#${number}`, group.label];
+          tooltipParts.push(trade.side === 'short' ? 'Short' : 'Long');
           if (trade.notes) {
             tooltipParts.push(trade.notes);
           }
@@ -296,11 +704,27 @@
         losses: 0,
         winRate: 0,
         longestWin: 0,
-        longestLoss: 0
+        longestLoss: 0,
+        longTrades: 0,
+        shortTrades: 0,
+        longWins: 0,
+        shortWins: 0
       };
       if (statsEls.totalTrades) statsEls.totalTrades.textContent = data.total.toString();
       if (statsEls.wins) statsEls.wins.textContent = data.wins.toString();
       if (statsEls.losses) statsEls.losses.textContent = data.losses.toString();
+      if (statsEls.longShort) {
+        const longCount = data.longTrades || 0;
+        const shortCount = data.shortTrades || 0;
+        statsEls.longShort.textContent = `${longCount} / ${shortCount}`;
+      }
+      if (statsEls.longShortWin) {
+        const longCount = data.longTrades || 0;
+        const shortCount = data.shortTrades || 0;
+        const longWinRate = longCount ? (data.longWins / longCount) * 100 : 0;
+        const shortWinRate = shortCount ? (data.shortWins / shortCount) * 100 : 0;
+        statsEls.longShortWin.textContent = `${toOneDecimal(longWinRate)}% / ${toOneDecimal(shortWinRate)}%`;
+      }
       if (statsEls.winRate) statsEls.winRate.textContent = `${toOneDecimal(data.winRate)}%`;
       if (statsEls.longestWin) statsEls.longestWin.textContent = data.longestWin.toString();
       if (statsEls.longestLoss) statsEls.longestLoss.textContent = data.longestLoss.toString();
@@ -429,9 +853,12 @@
     const emptyState = document.getElementById('strategyTableEmptyState');
     const tableSummary = document.getElementById('strategyTableSummary');
 
+    strategyTableDetails = [];
+
     if (!tableWrapper || !tableBody || !emptyState) return;
 
     if (!trades.length) {
+      strategyTableDetails = [];
       tableWrapper.style.display = 'none';
       emptyState.style.display = 'block';
       if (tableSummary) tableSummary.style.display = 'none';
@@ -517,16 +944,29 @@
         }
       }
 
+      const side = trade.side === 'short' ? 'short' : 'long';
+
       tradeDetails.push({
         index: index + 1,
+        arrayIndex: index,
+        id: trade.id,
+        mode: trade.mode,
         result: trade.result,
         isBigWin: trade.isBigWin,
+        side,
         stake: stake,
         pnl: pnl,
         rrRatio: rrRatio,
-        capitalAfter: capital
+        capitalAfter: capital,
+        roe: Number.isFinite(trade.roe) ? trade.roe : 0,
+        notes: trade.notes || '',
+        indicator: trade.indicator || '',
+        combo: trade.combo || '',
+        timestamp: trade.timestamp || ''
       });
     });
+
+    strategyTableDetails = tradeDetails.slice();
 
     // Render table rows
     const rows = tradeDetails.map(detail => {
@@ -534,11 +974,14 @@
       const pnlClass = detail.pnl >= 0 ? 'pnl-positive' : 'pnl-negative';
       const resultText = detail.result === 'win' ? 'Win' : 'Loss';
       const bigWinIndicator = detail.isBigWin ? '<span class="big-win-indicator">BIG</span>' : '';
+      const sideLabel = detail.side === 'short' ? 'Short' : 'Long';
+      const sideClass = detail.side === 'short' ? 'side-badge short' : 'side-badge long';
       
       return `
-        <tr>
+        <tr data-detail-index="${detail.arrayIndex}">
           <td>${detail.index}</td>
           <td class="${resultClass}">${resultText}${bigWinIndicator}</td>
+          <td class="side-cell"><span class="${sideClass}">${sideLabel}</span></td>
           <td>${detail.stake.toFixed(1)}</td>
           <td class="${pnlClass}">${detail.pnl >= 0 ? '+' : ''}${detail.pnl.toFixed(1)}</td>
           <td class="rr-ratio">${detail.rrRatio}</td>
@@ -571,6 +1014,59 @@
     }
   }
 
+  function showStrategyTradeDetail(index) {
+    if (!Array.isArray(strategyTableDetails) || strategyTableDetails.length === 0) {
+      return;
+    }
+
+    const detail = strategyTableDetails[index];
+    if (!detail) {
+      return;
+    }
+
+    const fields = dom.strategyDetailFields || {};
+    const modal = dom.strategyDetailModal;
+
+    const modeLabels = { single: 'Single', multi: 'Multi', combi: 'Combi' };
+    const resultText = detail.result === 'win' ? 'Win' : 'Loss';
+    const sideText = detail.side === 'short' ? 'Short' : 'Long';
+    const pnlValue = `${detail.pnl >= 0 ? '+' : ''}${detail.pnl.toFixed(2)} USDT`;
+    const stakeValue = `${detail.stake.toFixed(2)} USDT`;
+    const roeValue = `${detail.roe >= 0 ? '+' : ''}${toOneDecimal(detail.roe)}%`;
+    const indicatorText = detail.mode === 'single'
+      ? (detail.indicator || 'N/A')
+      : (detail.combo || 'N/A');
+    const timestampText = detail.timestamp
+      ? formatTimestamp(detail.timestamp)
+      : 'N/A';
+
+    if (fields.title) fields.title.textContent = `Trade #${detail.index}`;
+    if (fields.result) fields.result.textContent = resultText;
+    if (fields.side) fields.side.textContent = sideText;
+    if (fields.stake) fields.stake.textContent = stakeValue;
+    if (fields.pnl) fields.pnl.textContent = pnlValue;
+    if (fields.rr) fields.rr.textContent = detail.rrRatio;
+    if (fields.roe) fields.roe.textContent = roeValue;
+    if (fields.mode) fields.mode.textContent = modeLabels[detail.mode] || detail.mode || 'N/A';
+    if (fields.indicator) fields.indicator.textContent = indicatorText;
+    if (fields.timestamp) fields.timestamp.textContent = timestampText;
+    if (fields.notes) fields.notes.textContent = detail.notes ? detail.notes : 'Không có ghi chú.';
+
+    if (modal) {
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+  }
+
+  function hideStrategyTradeDetail() {
+    const modal = dom.strategyDetailModal;
+    if (!modal) {
+      return;
+    }
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
   function renderEverything() {
     const loadingIndicator = document.getElementById('loadingIndicator');
     
@@ -589,6 +1085,7 @@
     renderModeStats();
     renderSymbolStats();
     renderCapitalStrategies();
+    renderDashboardInsights();
     renderSymbolList();
     renderActiveSymbolInfo();
     renderTradeHistory();
@@ -607,7 +1104,11 @@
         losses: 0,
         winRate: 0,
         longestWin: 0,
-        longestLoss: 0
+        longestLoss: 0,
+        longTrades: 0,
+        shortTrades: 0,
+        longWins: 0,
+        shortWins: 0
       };
       
       const metricsData = metrics || {
@@ -620,6 +1121,18 @@
       if (statsEls.totalTrades) statsEls.totalTrades.textContent = data.total.toString();
       if (statsEls.wins) statsEls.wins.textContent = data.wins.toString();
       if (statsEls.losses) statsEls.losses.textContent = data.losses.toString();
+      if (statsEls.longShort) {
+        const longCount = data.longTrades || 0;
+        const shortCount = data.shortTrades || 0;
+        statsEls.longShort.textContent = `${longCount} / ${shortCount}`;
+      }
+      if (statsEls.longShortWin) {
+        const longCount = data.longTrades || 0;
+        const shortCount = data.shortTrades || 0;
+        const longWinRate = longCount ? (data.longWins / longCount) * 100 : 0;
+        const shortWinRate = shortCount ? (data.shortWins / shortCount) * 100 : 0;
+        statsEls.longShortWin.textContent = `${toOneDecimal(longWinRate)}% / ${toOneDecimal(shortWinRate)}%`;
+      }
       if (statsEls.winRate) statsEls.winRate.textContent = `${toOneDecimal(data.winRate)}%`;
       if (statsEls.longestWin) statsEls.longestWin.textContent = data.longestWin.toString();
       if (statsEls.longestLoss) statsEls.longestLoss.textContent = data.longestLoss.toString();
@@ -667,12 +1180,15 @@
     renderModeStats,
     renderSymbolStats,
     renderCapitalStrategies,
+    renderDashboardInsights,
     renderSymbolList,
     renderActiveSymbolInfo,
     renderTradeHistory,
     renderStrategyAnalysis,
     renderEverything,
     renderTradeAnalysis,
-    addTradeBlinkAnimation
+    addTradeBlinkAnimation,
+    showStrategyTradeDetail,
+    hideStrategyTradeDetail
   };
 })(window.BacktestApp);
