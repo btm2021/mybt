@@ -587,7 +587,7 @@
     dom.activeSymbolInfo.innerHTML = `
       <div class="active-symbol">
         <h3 class="symbol-title">
-        <a style="color:pink;text-decoration:none' href="https://vn.tradingview.com/chart/JMJyafji/?symbol=BINANCE%3A${symbol.name.toUpperCase()}" target="_blank">${String(symbol.name).toUpperCase()}</a> <span class="symbol-meta">${symbol.exchange} - ${symbol.timeframe}</span></h3>
+        <a style="color:pink;text-decoration:none;" href="https://vn.tradingview.com/chart/JMJyafji/?symbol=BINANCE%3A${symbol.name.toUpperCase()}" target="_blank">${String(symbol.name).toUpperCase()}</a> <span class="symbol-meta">${symbol.exchange} - ${symbol.timeframe}</span></h3>
         ${symbol.indicators.length ? `
           <div><strong>Indicators:</strong>
             <div class="tag-list">${symbol.indicators.map((indicator) => `<span class="tag">${indicator}</span>`).join("")}</div>
