@@ -21,50 +21,61 @@ class ChartManager {
             layout: {
                 background: {
                     type: 'solid',
-                    color: '#ffffff',
+                    color: '#000000',
                 },
-                textColor: '#333',
+                textColor: '#ffffff',
+                fontSize: 11,
             },
             grid: {
                 vertLines: {
-                    color: '#e1e1e1',
+                    color: '#333333',
                 },
                 horzLines: {
-                    color: '#e1e1e1',
+                    color: '#333333',
                 },
             },
             crosshair: {
                 mode: LightweightCharts.CrosshairMode.Normal,
             },
             rightPriceScale: {
-                borderColor: '#cccccc',
+                borderColor: '#333333',
+                scaleMargins: {
+                    top: 0.1,
+                    bottom: 0.1,
+                },
+                mode: LightweightCharts.PriceScaleMode.Normal,
+                autoScale: true,
             },
             timeScale: {
-                borderColor: '#cccccc',
+                borderColor: '#333333',
                 timeVisible: true,
                 secondsVisible: false,
+                rightOffset: 5,
+                barSpacing: 6,
             },
         });
 
         // Create candlestick series
         this.candlestickSeries = this.chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+            upColor: '#00ff00',
+            downColor: '#ff0000',
             borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
+            wickUpColor: '#00ff00',
+            wickDownColor: '#ff0000',
+            borderUpColor: '#00ff00',
+            borderDownColor: '#ff0000',
         });
 
         // Create Trail1 series (EMA)
         this.trail1Series = this.chart.addLineSeries({
-            color: '#00C851',
+            color: '#00ff00',
             lineWidth: 2,
             title: 'Trail1 (EMA)',
         });
 
         // Create Trail2 series (ATR Trailing Stop)
         this.trail2Series = this.chart.addLineSeries({
-            color: '#FF4444',
+            color: '#ff0000',
             lineWidth: 2,
             title: 'Trail2 (ATR)',
         });
@@ -121,21 +132,118 @@ class ChartManager {
 
     // Set all candlestick data at once
     setCandlestickData(data) {
-        if (this.candlestickSeries) {
+        if (this.candlestickSeries && data && data.length > 0) {
+            // Determine precision based on price range
+            const prices = data.map(d => d.close);
+            const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+            
+            let precision = 2;
+            let minMove = 0.01;
+            
+            if (avgPrice < 1) {
+                precision = 6;
+                minMove = 0.0001;
+            } else if (avgPrice < 10) {
+                precision = 4;
+                minMove = 0.0001;
+            } else if (avgPrice < 100) {
+                precision = 3;
+                minMove = 0.001;
+            }
+            
+            // Update chart options with better price formatting
+            this.chart.applyOptions({
+                rightPriceScale: {
+                    borderColor: '#cccccc',
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.1,
+                    },
+                    mode: LightweightCharts.PriceScaleMode.Normal,
+                    autoScale: true,
+                },
+                localization: {
+                    priceFormatter: (price) => {
+                        return price.toFixed(precision);
+                    },
+                },
+            });
+            
+            // Update candlestick series with proper precision
+            this.candlestickSeries.applyOptions({
+                priceFormat: {
+                    type: 'price',
+                    precision: precision,
+                    minMove: minMove,
+                },
+            });
+            
             this.candlestickSeries.setData(data);
         }
     }
 
     // Set all Trail1 data at once
     setTrail1Data(data) {
-        if (this.trail1Series) {
+        if (this.trail1Series && data && data.length > 0) {
+            // Determine precision based on data values
+            const values = data.map(d => d.value);
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            let precision = 2;
+            let minMove = 0.01;
+            
+            if (avgValue < 1) {
+                precision = 6;
+                minMove = 0.0001;
+            } else if (avgValue < 10) {
+                precision = 4;
+                minMove = 0.0001;
+            } else if (avgValue < 100) {
+                precision = 3;
+                minMove = 0.001;
+            }
+            
+            this.trail1Series.applyOptions({
+                priceFormat: {
+                    type: 'price',
+                    precision: precision,
+                    minMove: minMove,
+                },
+            });
+            
             this.trail1Series.setData(data);
         }
     }
 
     // Set all Trail2 data at once
     setTrail2Data(data) {
-        if (this.trail2Series) {
+        if (this.trail2Series && data && data.length > 0) {
+            // Determine precision based on data values
+            const values = data.map(d => d.value);
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            let precision = 2;
+            let minMove = 0.01;
+            
+            if (avgValue < 1) {
+                precision = 6;
+                minMove = 0.0001;
+            } else if (avgValue < 10) {
+                precision = 4;
+                minMove = 0.0001;
+            } else if (avgValue < 100) {
+                precision = 3;
+                minMove = 0.001;
+            }
+            
+            this.trail2Series.applyOptions({
+                priceFormat: {
+                    type: 'price',
+                    precision: precision,
+                    minMove: minMove,
+                },
+            });
+            
             this.trail2Series.setData(data);
         }
     }

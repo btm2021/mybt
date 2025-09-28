@@ -7,31 +7,48 @@
     <title>Binance Chart Replay</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
 </head>
 
 <body>
     <div class="navbar">
-        <input type="text" id="symbol" value="IMXUSDT" placeholder="Symbol">
-        <select id="timeframe">
-            <option value="1m">1m</option>
-            <option value="5m">5m</option>
-            <option value="15m" selected>15m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1d">1d</option>
-        </select>
-        <input type="number" id="candleCount" value="1000" min="100" max="10000" placeholder="Nến">
-        <button id="loadData">Tải</button>
-        <button id="replayBtn">Replay</button>
-        <button id="playPauseBtn" disabled>Play</button>
-        <button id="stepBtn" disabled>Step</button>
-        <button class="speed-btn" data-speed="1">1x</button>
-        <button class="speed-btn active" data-speed="5">5x</button>
-        <button class="speed-btn" data-speed="10">10x</button>
-        <button id="backtestBtn">Backtest</button>
-        <button id="clearBacktestBtn">Xóa</button>
-        <span id="status">Sẵn sàng</span>
-        <span id="progress"></span>
+        <div class="nav-group data-controls">
+            <label>Symbol:</label>
+            <select id="symbol">
+                <option value="">Loading...</option>
+            </select>
+            <label>Timeframe:</label>
+            <select id="timeframe">
+                <option value="1m">1m</option>
+                <option value="5m">5m</option>
+                <option value="15m" selected>15m</option>
+                <option value="1h">1h</option>
+            </select>
+            <label>Candles:</label>
+            <input type="number" id="candleCount" value="1500" min="100" placeholder="Nến">
+            <button id="loadData">Load Data</button>
+        </div>
+        
+        <div class="nav-group replay-controls">
+            <button id="replayBtn">Replay</button>
+            <button id="playPauseBtn" disabled>Play</button>
+            <button id="stepBtn" disabled>Step</button>
+            <div class="speed-controls">
+                <button class="speed-btn" data-speed="1">1x</button>
+                <button class="speed-btn active" data-speed="5">5x</button>
+                <button class="speed-btn" data-speed="10">10x</button>
+            </div>
+        </div>
+        
+        <div class="nav-group backtest-controls">
+            <button id="clearBacktestBtn">Clear</button>
+            <button id="cacheManagerBtn">Cache</button>
+        </div>
+        
+        <div class="nav-group status-info">
+            <span id="status">Ready</span>
+            <span id="progress"></span>
+        </div>
     </div>
 
     <div class="content">
@@ -57,14 +74,14 @@
                             <tr>
                                 <th>#</th>
                                 <th>Side</th>
-                                <th>Entry</th>
-                                <th>Exit</th>
-                                <th>Price In</th>
-                                <th>Price Out</th>
-                                <th>Amount</th>
-                                <th>PnL</th>
-                                <th>%</th>
-                                <th>Time</th>
+                                <th>Entry Time</th>
+                                <th>Exit Time</th>
+                                <th>Entry Price</th>
+                                <th>Max Price</th>
+                                <th>Coin Amount</th>
+                                <th>Max PnL</th>
+                                <th>Max %</th>
+                                <th>Candles</th>
                             </tr>
                         </thead>
                         <tbody id="backtest-table-body">
@@ -75,11 +92,118 @@
         </div>
     </div>
 
+    <!-- Cache Manager Modal -->
+    <div id="cacheModal" class="modal" style="display: none;">
+        <div class="modal-content cache-modal">
+            <div class="modal-header">
+                <span class="modal-title">Cache Manager</span>
+                <span class="modal-close cache-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="cache-stats">
+                    <div class="cache-stat-item">
+                        <span class="cache-stat-label">Total Symbols:</span>
+                        <span id="cache-total-symbols" class="cache-stat-value">0</span>
+                    </div>
+                    <div class="cache-stat-item">
+                        <span class="cache-stat-label">Total Candles:</span>
+                        <span id="cache-total-candles" class="cache-stat-value">0</span>
+                    </div>
+                    <div class="cache-stat-item">
+                        <span class="cache-stat-label">Storage Used:</span>
+                        <span id="cache-storage-size" class="cache-stat-value">0 MB</span>
+                    </div>
+                </div>
+                
+                <div class="cache-controls">
+                    <button id="refreshCacheBtn">Refresh</button>
+                    <button id="clearAllCacheBtn">Clear All</button>
+                </div>
+                
+                <div class="cache-table-container">
+                    <table id="cache-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Timeframe</th>
+                                <th>Candles</th>
+                                <th>Last Update</th>
+                                <th>Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cache-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entry Detail Modal -->
+    <div id="entryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Entry Detail</span>
+                <span class="modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="entry-info">
+                    <div class="entry-info-item">
+                        <span class="info-label">Side:</span>
+                        <span id="modal-side" class="info-value"></span>
+                    </div>
+                    <div class="entry-info-item">
+                        <span class="info-label">Entry:</span>
+                        <span id="modal-entry-price" class="info-value"></span>
+                    </div>
+                    <div class="entry-info-item">
+                        <span class="info-label">Exit:</span>
+                        <span id="modal-exit-price" class="info-value"></span>
+                    </div>
+                    <div class="entry-info-item">
+                        <span class="info-label">PnL:</span>
+                        <span id="modal-pnl" class="info-value"></span>
+                    </div>
+                    <div class="entry-info-item">
+                        <span class="info-label">Duration:</span>
+                        <span id="modal-duration" class="info-value"></span>
+                    </div>
+                </div>
+                
+                <div class="profit-analysis">
+                    <div class="analysis-header">Phân Tích Lợi Nhuận Tối Đa</div>
+                    <div class="analysis-content">
+                        <div class="analysis-item">
+                            <span class="analysis-label">Giá cao nhất:</span>
+                            <span id="analysis-max-price" class="analysis-value"></span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-label">PnL tối đa:</span>
+                            <span id="analysis-max-pnl" class="analysis-value"></span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-label">ROE tối đa:</span>
+                            <span id="analysis-max-roe" class="analysis-value"></span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="analysis-label">Thời điểm:</span>
+                            <span id="analysis-max-time" class="analysis-value"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="modal-chart"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="binance-api.js"></script>
     <script src="botatr.js"></script>
     <script src="replay-engine.js"></script>
     <script src="chart-manager.js"></script>
     <script src="backtest-engine.js"></script>
+    <script src="cache-manager.js"></script>
     <script src="app.js"></script>
 </body>
 

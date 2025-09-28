@@ -224,7 +224,7 @@ class SimpleBacktestSystem {
             activeEntry: this.currentEntry
         };
 
-        // Check if side changed
+        // Check if side changed (trail1 crosses trail2)
         if (currentSide && currentSide !== this.previousSide) {
             processingResult.sideChanged = true;
 
@@ -234,7 +234,7 @@ class SimpleBacktestSystem {
                 processingResult.entryClosed = this.currentEntry;
             }
 
-            // Create new entry (will be executed next candle)
+            // Create new entry (will be executed at close of NEXT candle - 1 candle delay)
             const newEntry = this.createEntry(currentSide, candle, trail1, trail2);
             processingResult.entryCreated = newEntry;
         }
@@ -313,10 +313,10 @@ class SimpleBacktestSystem {
 
         const entry = this.currentEntry;
         
-        // Use previous candle's close price for entry
+        // Entry at close price of the second candle after signal
         entry.entryCandle = this.candleIndex;
         entry.entryTime = candle.time;
-        entry.entryPrice = candle.close; // Entry at current close
+        entry.entryPrice = candle.close; // Entry at close of second candle after signal
         entry.coinAmount = this.capital / entry.entryPrice; // Convert USDT to coin amount
         entry.status = 'ACTIVE';
 
@@ -392,9 +392,13 @@ class SimpleBacktestSystem {
         if (!entry.entryPrice || !entry.exitPrice || !entry.coinAmount) {
             entry.pnl = 0;
             entry.pnlPercent = 0;
+            entry.maxPnL = 0;
+            entry.maxPnLPercent = 0;
+            entry.isWinByMaxPnL = false;
             return;
         }
 
+        // Calculate actual PnL (exit PnL)
         let pnl;
         if (entry.side === 'LONG') {
             // Long: profit when price goes up
@@ -406,6 +410,64 @@ class SimpleBacktestSystem {
 
         entry.pnl = pnl;
         entry.pnlPercent = (pnl / this.capital) * 100;
+
+        // Calculate maximum possible PnL during the entry period
+        this.calculateMaxPnL(entry);
+    }
+
+    /**
+     * Calculate maximum PnL during entry period
+     * @param {Object} entry - Entry object
+     */
+    calculateMaxPnL(entry) {
+        if (!entry.candleData || entry.candleData.length === 0 || !entry.entryPrice) {
+            entry.maxPnL = entry.pnl || 0;
+            entry.maxPnLPercent = entry.pnlPercent || 0;
+            entry.isWinByMaxPnL = false;
+            return;
+        }
+
+        const entryPrice = entry.entryPrice;
+        const coinAmount = entry.coinAmount;
+        const side = entry.side;
+        
+        let maxPnL = -Infinity;
+        let maxPrice = 0;
+        let maxCandle = null;
+        
+        // Analyze each candle to find maximum profit
+        entry.candleData.forEach(candle => {
+            // For each candle, check both high and low prices
+            const prices = [candle.high, candle.low];
+            
+            prices.forEach(price => {
+                let pnl = 0;
+                
+                if (side === 'LONG') {
+                    // Long position: profit when price goes up
+                    pnl = (price - entryPrice) * coinAmount;
+                } else {
+                    // Short position: profit when price goes down  
+                    pnl = (entryPrice - price) * coinAmount;
+                }
+                
+                // Check if this is the maximum profit so far
+                if (pnl > maxPnL) {
+                    maxPnL = pnl;
+                    maxPrice = price;
+                    maxCandle = candle;
+                }
+            });
+        });
+        
+        // Store maximum PnL data
+        entry.maxPnL = maxPnL > -Infinity ? maxPnL : (entry.pnl || 0);
+        entry.maxPnLPercent = (entry.maxPnL / this.capital) * 100;
+        entry.maxPrice = maxPrice;
+        entry.maxPnLCandle = maxCandle;
+        
+        // Determine if this is a win based on max PnL >= 50 USDT
+        entry.isWinByMaxPnL = entry.maxPnL >= 50;
     }
 
     /**
