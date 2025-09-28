@@ -6,6 +6,7 @@ class TradingApp {
             this.replayEngine = new ReplayEngine(this.chartManager);
             this.backtestEngine = new BacktestEngine(this.replayEngine, this.chartManager);
             this.cacheManager = new CacheManager();
+            this.symbolSelector = new SymbolSelector(this.binanceAPI);
             this.currentData = [];
 
             this.initializeEventListeners();
@@ -13,7 +14,7 @@ class TradingApp {
             this.updateUI();
             this.initializeBacktestSystem();
             this.initializeCacheModal();
-            this.loadSymbolList();
+            this.initializeSymbolSelector();
         } catch (error) {
             console.error('Error in TradingApp constructor:', error);
             // Set a basic status message if possible
@@ -23,6 +24,20 @@ class TradingApp {
                 statusElement.className = 'status-error';
             }
         }
+    }
+
+    // Initialize symbol selector
+    initializeSymbolSelector() {
+        // Listen for symbol selection events
+        document.addEventListener('symbolSelected', (e) => {
+            const { symbol } = e.detail;
+            console.log('Symbol selected:', symbol);
+            
+            // Auto load data when symbol is selected
+            setTimeout(() => {
+                this.loadData();
+            }, 100);
+        });
     }
 
     // Initialize simple backtest system
@@ -37,12 +52,14 @@ class TradingApp {
     // Initialize modal functionality
     initializeModal() {
         const modal = document.getElementById('entryModal');
-        const closeBtn = document.querySelector('.modal-close');
+        const closeBtn = document.querySelector('#entryModal .modal-close');
 
         // Close modal when clicking X
-        closeBtn.addEventListener('click', () => {
-            this.closeModal();
-        });
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeModal();
+            });
+        }
 
         // Close modal when clicking outside
         modal.addEventListener('click', (e) => {
@@ -162,12 +179,32 @@ class TradingApp {
     // Delete specific cache entry
     async deleteCacheEntry(symbol, timeframe) {
         if (confirm(`Xóa cache cho ${symbol} ${timeframe}?`)) {
-            const success = await this.cacheManager.deleteCacheEntry(symbol, timeframe);
-            if (success) {
-                this.updateStatus(`Đã xóa cache ${symbol} ${timeframe}`, 'success');
-                await this.refreshCacheTable();
-            } else {
+            // Find and disable the delete button, show spinner
+            const deleteBtn = document.querySelector(`button[onclick*="deleteCacheEntry('${symbol}', '${timeframe}')"]`);
+            if (deleteBtn) {
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = '<div class="mini-spinner"></div> Deleting...';
+            }
+
+            this.updateStatus(`Đang xóa cache ${symbol} ${timeframe}...`, 'loading');
+            
+            try {
+                const success = await this.cacheManager.deleteCacheEntry(symbol, timeframe);
+                if (success) {
+                    this.updateStatus(`Đã xóa cache ${symbol} ${timeframe}`, 'success');
+                    await this.refreshCacheTable();
+                } else {
+                    this.updateStatus('Lỗi khi xóa cache', 'error');
+                }
+            } catch (error) {
+                console.error('Delete cache error:', error);
                 this.updateStatus('Lỗi khi xóa cache', 'error');
+            } finally {
+                // Re-enable button (will be refreshed anyway)
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.innerHTML = 'Delete';
+                }
             }
         }
     }
@@ -175,12 +212,30 @@ class TradingApp {
     // Clear all cache
     async clearAllCache() {
         if (confirm('Xóa tất cả cache? Hành động này không thể hoàn tác.')) {
-            const success = await this.cacheManager.clearAllCache();
-            if (success) {
-                this.updateStatus('Đã xóa tất cả cache', 'success');
-                await this.refreshCacheTable();
-            } else {
+            const clearBtn = document.getElementById('clearAllCacheBtn');
+            if (clearBtn) {
+                clearBtn.disabled = true;
+                clearBtn.innerHTML = '<div class="mini-spinner"></div> Clearing...';
+            }
+
+            this.updateStatus('Đang xóa tất cả cache...', 'loading');
+            
+            try {
+                const success = await this.cacheManager.clearAllCache();
+                if (success) {
+                    this.updateStatus('Đã xóa tất cả cache', 'success');
+                    await this.refreshCacheTable();
+                } else {
+                    this.updateStatus('Lỗi khi xóa cache', 'error');
+                }
+            } catch (error) {
+                console.error('Clear all cache error:', error);
                 this.updateStatus('Lỗi khi xóa cache', 'error');
+            } finally {
+                if (clearBtn) {
+                    clearBtn.disabled = false;
+                    clearBtn.innerHTML = 'Clear All';
+                }
             }
         }
     }
@@ -296,7 +351,7 @@ class TradingApp {
 
     // Load data from Binance with smart caching
     async loadData() {
-        const symbol = document.getElementById('symbol').value;
+        const symbol = this.symbolSelector.getSelectedSymbol();
         const timeframe = document.getElementById('timeframe').value;
         const candleCount = parseInt(document.getElementById('candleCount').value);
 
@@ -314,69 +369,80 @@ class TradingApp {
         loadBtn.disabled = true;
         loadBtn.classList.add('loading');
 
-        try {
-            this.updateStatus('Kiểm tra cache...', 'loading');
+        // Show loading overlay
+        this.symbolSelector.showLoadingOverlay(`Checking cache for ${symbol} ${timeframe}...`);
 
-            // Check existing cache
-            const existingCache = await this.cacheManager.loadFromCache(symbol, timeframe);
+        try {
+            this.updateStatus(`Checking cache for ${symbol} ${timeframe}...`, 'loading');
+
+            // Smart cache check - only fetch what's missing
+            const cacheNeedsInfo = await this.cacheManager.needsMoreData(symbol, timeframe, candleCount);
             let data = null;
             let shouldUpdateCache = false;
 
-            if (!existingCache) {
-                // No cache exists - fetch and save
-                console.log(`No cache found for ${symbol} ${timeframe}, fetching ${candleCount} candles`);
+            if (!cacheNeedsInfo.needsFetch) {
+                // Cache has enough data and is fresh - use cache
+                console.log(`Using cached data for ${symbol} ${timeframe}`);
+                this.updateStatus('Tải từ cache...', 'loading');
+                const cacheResult = await this.cacheManager.loadFromCache(symbol, timeframe, candleCount);
+                data = cacheResult.candles;
+                this.updateStatus(`Cache: ${symbol} ${timeframe} - ${data.length} nến`, 'success');
+            } else {
+                // Need to fetch data
+                const reason = cacheNeedsInfo.reason;
+                let fetchCount = candleCount;
+                let fetchMessage = '';
+
+                if (reason === 'no_cache') {
+                    fetchCount = candleCount;
+                    fetchMessage = `Tải ${fetchCount} nến từ Binance`;
+                    console.log(`No cache found for ${symbol} ${timeframe}, fetching ${fetchCount} candles`);
+                } else if (reason === 'insufficient_data') {
+                    const additional = cacheNeedsInfo.additional;
+                    // Fetch a bit more than needed to have buffer
+                    fetchCount = Math.max(candleCount, cacheNeedsInfo.cached + Math.ceil(additional * 1.2));
+                    fetchMessage = `Cache: ${cacheNeedsInfo.cached} nến, tải thêm ${additional} nến`;
+                    console.log(`Cache has ${cacheNeedsInfo.cached}, need ${additional} more, fetching ${fetchCount} total`);
+                } else if (reason === 'data_too_old') {
+                    fetchCount = candleCount;
+                    fetchMessage = `Cache cũ, tải lại ${fetchCount} nến`;
+                    console.log(`Cache is too old, fetching fresh data`);
+                }
+
+                this.symbolSelector.showLoadingOverlay(`${fetchMessage}...`);
                 this.updateStatus('Tải từ Binance...', 'loading');
-                data = await this.binanceAPI.fetchHistoricalData(
+                
+                const newData = await this.binanceAPI.fetchHistoricalData(
                     symbol,
                     timeframe,
-                    candleCount,
+                    fetchCount,
                     (current, total, message) => {
-                        this.updateStatus(message, 'loading');
+                        const progress = Math.round((current / total) * 100);
+                        const progressMsg = `${message} (${progress}%)`;
+                        this.updateStatus(progressMsg, 'loading');
+                        this.symbolSelector.showLoadingOverlay(`${fetchMessage} - ${progress}%`);
                     }
                 );
-                shouldUpdateCache = true;
-                this.updateStatus('Lưu vào cache...', 'loading');
-            } else {
-                const cachedCount = existingCache.metadata.count;
-                console.log(`Found cache for ${symbol} ${timeframe}: ${cachedCount} candles, requested: ${candleCount}`);
 
-                if (candleCount <= cachedCount) {
-                    // Requested data is less than or equal to cached data - use cache
-                    console.log(`Using cache data (${candleCount} out of ${cachedCount} candles)`);
-                    this.updateStatus('Tải từ cache...', 'loading');
-                    const cacheResult = await this.cacheManager.loadFromCache(symbol, timeframe, candleCount);
-                    data = cacheResult.candles;
-                    this.updateStatus(`Cache: ${symbol} ${timeframe} - ${data.length} nến`, 'success');
-                } else {
-                    // Need more data - fetch only the missing amount and merge
-                    const missingCount = candleCount - cachedCount;
-                    console.log(`Need ${missingCount} more candles. Cache has ${cachedCount}, requested ${candleCount}`);
-                    
-                    this.updateStatus(`Cache có ${cachedCount} nến, tải thêm ${missingCount} nến...`, 'loading');
-                    
-                    // Fetch additional data
-                    const additionalData = await this.binanceAPI.fetchHistoricalData(
-                        symbol,
-                        timeframe,
-                        candleCount, // Fetch full amount to ensure we get the latest data
-                        (current, total, message) => {
-                            this.updateStatus(message, 'loading');
-                        }
-                    );
-                    
-                    // Only update cache if we got more data than cached
-                    if (additionalData.length > cachedCount) {
-                        shouldUpdateCache = true;
-                        console.log(`Will update cache: ${cachedCount} → ${additionalData.length} candles`);
+                if (newData && newData.length > 0) {
+                    if (reason === 'insufficient_data' && cacheNeedsInfo.cached > 0) {
+                        // Extend existing cache
                         this.updateStatus('Cập nhật cache...', 'loading');
-                        data = additionalData;
+                        const extendedResult = await this.cacheManager.extendCache(symbol, timeframe, newData, candleCount);
+                        data = extendedResult?.candles || newData.slice(-candleCount);
+                        console.log(`Extended cache, now have ${data.length} candles`);
                     } else {
-                        // Use existing cache if new data isn't better
-                        console.log(`New data (${additionalData.length}) not better than cache (${cachedCount}), using cache`);
-                        const cacheResult = await this.cacheManager.loadFromCache(symbol, timeframe, candleCount);
-                        data = cacheResult.candles;
-                        shouldUpdateCache = false;
+                        // Replace cache completely
+                        data = newData.slice(-candleCount); // Get most recent requested amount
+                        shouldUpdateCache = true;
+                        this.updateStatus('Lưu vào cache...', 'loading');
+                        console.log(`Fetched ${newData.length} candles, using ${data.length} most recent`);
                     }
+                } else {
+                    // Fallback to existing cache if available
+                    console.log('Failed to fetch new data, trying to use existing cache');
+                    const cacheResult = await this.cacheManager.loadFromCache(symbol, timeframe, candleCount);
+                    data = cacheResult?.candles || [];
                 }
             }
 
@@ -417,6 +483,7 @@ class TradingApp {
         } finally {
             loadBtn.disabled = false;
             loadBtn.classList.remove('loading');
+            this.symbolSelector.hideLoadingOverlay();
         }
     }
 
@@ -506,6 +573,7 @@ class TradingApp {
             return;
         }
 
+        this.symbolSelector.showLoadingOverlay('Running backtest...');
         this.updateStatus('Chạy backtest...', 'loading');
 
         try {
@@ -516,6 +584,8 @@ class TradingApp {
         } catch (error) {
             console.error('Backtest error:', error);
             this.updateStatus('Lỗi: ' + error.message, 'error');
+        } finally {
+            this.symbolSelector.hideLoadingOverlay();
         }
     }
 
@@ -523,9 +593,6 @@ class TradingApp {
 
     // Clear backtest results
     clearBacktest() {
-        const resultsPanel = document.getElementById('backtest-results');
-        resultsPanel.style.display = 'none';
-
         document.getElementById('backtest-stats').innerHTML = '';
         document.getElementById('backtest-table-body').innerHTML = '';
         document.getElementById('tableRowCount').textContent = '0';
@@ -537,18 +604,13 @@ class TradingApp {
 
     // Display backtest results in UI
     displayBacktestResults(results) {
-        const resultsPanel = document.getElementById('backtest-results');
         const statsDiv = document.getElementById('backtest-stats');
         const entriesDiv = document.getElementById('backtest-entries');
-
-        // Show panel
-        resultsPanel.style.display = 'block';
 
         // Get fresh statistics from current backtest
         const stats = this.simpleBacktest.getStatistics();
         const allEntries = this.simpleBacktest.getAllEntries();
         const closedEntries = allEntries.filter(e => e.status === 'CLOSED');
-
         // Calculate updated statistics based on maxPnL
         const winsByMaxPnL = closedEntries.filter(e => e.isWinByMaxPnL).length;
         const lossByMaxPnL = closedEntries.length - winsByMaxPnL;
@@ -570,10 +632,7 @@ class TradingApp {
                 <span class="stat-label">W/L</span>
                 <span class="stat-value">${winsByMaxPnL}/${lossByMaxPnL}</span>
             </div>
-            <div class="stat-item">
-                <span class="stat-label">Total PnL</span>
-                <span class="stat-value ${totalMaxPnL >= 0 ? 'positive' : 'negative'}">${totalMaxPnL.toFixed(0)}</span>
-            </div>
+          
             <div class="stat-item">
                 <span class="stat-label">Avg PnL</span>
                 <span class="stat-value ${avgMaxPnL >= 0 ? 'positive' : 'negative'}">${avgMaxPnL.toFixed(0)}</span>
@@ -628,7 +687,7 @@ class TradingApp {
         this.currentTableData = entries;
 
         if (entries.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="10" class="table-empty">Chưa có lệnh nào</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="6" class="table-empty">Chưa có lệnh nào</td></tr>';
             rowCountElement.textContent = '0';
             return;
         }
@@ -650,15 +709,8 @@ class TradingApp {
         const duration = entry.candleData.length;
         const isWin = entry.isWinByMaxPnL || false;
 
-        // Format dates
+        // Format entry date 
         const entryDate = entry.entryTime ? new Date(entry.entryTime).toLocaleString('vi-VN', {
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        }) : '-';
-
-        const exitDate = entry.exitTime ? new Date(entry.exitTime).toLocaleString('vi-VN', {
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
@@ -669,17 +721,13 @@ class TradingApp {
         const exitPrice = entry.maxPrice || entry.exitPrice;
 
         return `
-            <tr onclick="app.showEntryDetail(${index - 1})" data-entry-index="${index - 1}" class="${isWin ? 'win-entry' : ''}">
-                <td class="table-cell-index">${index}</td>
-                <td class="table-cell-side ${entry.side.toLowerCase()}">${entry.side}</td>
-                <td class="table-cell-datetime">${entryDate}</td>
-                <td class="table-cell-datetime">${exitDate}</td>
-                <td class="table-cell-price">${entry.entryPrice?.toFixed(4) || '-'}</td>
-                <td class="table-cell-price">${exitPrice?.toFixed(4) || '-'}</td>
-                <td class="table-cell-amount">${entry.coinAmount?.toFixed(2) || '-'}</td>
-                <td class="table-cell-pnl ${maxPnL >= 0 ? 'positive' : 'negative'}">${maxPnL.toFixed(0)}</td>
-                <td class="table-cell-pnl ${maxPnLPercent >= 0 ? 'positive' : 'negative'}">${maxPnLPercent.toFixed(1)}%</td>
-                <td class="table-cell-duration">${duration}</td>
+            <tr data-entry-index="${index - 1}" class="${isWin ? 'win-entry' : ''}">
+                <td class="table-cell-index clickable-index" onclick="app.jumpToEntryTime(${index - 1})" title="Click to jump to this time">${index}</td>
+                <td class="table-cell-side ${entry.side.toLowerCase()}" onclick="app.showEntryDetail(${index - 1})">${entry.side}</td>
+                <td class="table-cell-datetime" onclick="app.showEntryDetail(${index - 1})">${entryDate}</td>
+                <td class="table-cell-price" onclick="app.showEntryDetail(${index - 1})">${exitPrice?.toFixed(4) || '-'}</td>
+                <td class="table-cell-pnl ${maxPnL >= 0 ? 'positive' : 'negative'}" onclick="app.showEntryDetail(${index - 1})">${maxPnL.toFixed(0)}</td>
+                <td class="table-cell-pnl ${maxPnLPercent >= 0 ? 'positive' : 'negative'}" onclick="app.showEntryDetail(${index - 1})">${maxPnLPercent.toFixed(1)}%</td>
             </tr>
         `;
     }
@@ -698,13 +746,9 @@ class TradingApp {
                 <td class="table-cell-index">Σ</td>
                 <td class="table-cell-side">${winCount}W/${entries.length - winCount}L</td>
                 <td class="table-cell-datetime">-</td>
-                <td class="table-cell-datetime">-</td>
                 <td class="table-cell-price">-</td>
-                <td class="table-cell-price">-</td>
-                <td class="table-cell-amount">-</td>
                 <td class="table-cell-pnl ${totalMaxPnL >= 0 ? 'positive' : 'negative'}">${totalMaxPnL.toFixed(0)}</td>
                 <td class="table-cell-pnl ${totalMaxPnLPercent >= 0 ? 'positive' : 'negative'}">${totalMaxPnLPercent.toFixed(1)}%</td>
-                <td class="table-cell-duration">${avgDuration.toFixed(0)}</td>
             </tr>
         `;
     }
@@ -792,6 +836,32 @@ class TradingApp {
             console.error('Export error:', error);
             this.updateStatus('Lỗi khi xuất file: ' + error.message, 'error');
         }
+    }
+
+    // Jump to entry time on main chart
+    jumpToEntryTime(entryIndex) {
+        if (!this.currentTableData || entryIndex >= this.currentTableData.length) {
+            return;
+        }
+
+        const entry = this.currentTableData[entryIndex];
+        if (!entry.entryTime || !this.chart) {
+            return;
+        }
+
+        // Convert entry time to chart time (seconds)
+        const chartTime = Math.floor(entry.entryTime / 1000);
+        
+        // Set chart visible range to show the entry time in center
+        const visibleRange = {
+            from: chartTime - 50, // Show 50 candles before
+            to: chartTime + 50    // Show 50 candles after
+        };
+
+        this.chart.timeScale().setVisibleRange(visibleRange);
+        
+        // Highlight the entry briefly
+        this.updateStatus(`Jumped to entry #${entryIndex + 1} at ${new Date(entry.entryTime).toLocaleString('vi-VN')}`, 'info');
     }
 
     // Show entry detail modal
@@ -1104,33 +1174,33 @@ class TradingApp {
     addEntryExitMarkers(series, entry) {
         this.modalMarkers = [];
 
-        // Entry marker
+        // Entry marker - position based on side
         if (entry.entryTime && entry.entryPrice) {
             this.modalMarkers.push({
                 time: Math.floor(entry.entryTime / 1000),
-                position: 'belowBar',
+                position: entry.side === 'LONG' ? 'belowBar' : 'aboveBar', // LONG: belowBar, SHORT: aboveBar
                 color: entry.side === 'LONG' ? '#0f0' : '#f00',
-                shape: 'arrowUp',
+                shape: entry.side === 'LONG' ? 'arrowUp' : 'arrowDown', // LONG: up arrow, SHORT: down arrow
                 text: `${entry.side} @ ${entry.entryPrice.toFixed(4)}`,
             });
         }
 
-        // Exit marker at maximum profit point
+        // Exit marker at maximum profit point - position based on side
         if (entry.maxPnLCandle && entry.maxPrice) {
             this.modalMarkers.push({
                 time: entry.maxPnLCandle.time,
-                position: 'aboveBar',
+                position: entry.side === 'SHORT' ? 'belowBar' : 'aboveBar', // SHORT exit: belowBar, LONG exit: aboveBar
                 color: entry.maxPnL >= 50 ? '#0f0' : '#f00',
-                shape: 'arrowDown',
-                text: `EXIT @ ${entry.maxPrice.toFixed(4)} (MAX: ${entry.maxPnL.toFixed(0)} USDT)`,
+                shape: entry.side === 'SHORT' ? 'arrowUp' : 'arrowDown', // SHORT exit: up arrow, LONG exit: down arrow
+                text: `MAX @ ${entry.maxPrice.toFixed(4)} (${entry.maxPnL.toFixed(0)} USDT)`,
             });
         } else if (entry.exitTime && entry.exitPrice) {
             // Fallback to original exit if no max profit data
             this.modalMarkers.push({
                 time: Math.floor(entry.exitTime / 1000),
-                position: 'aboveBar',
+                position: entry.side === 'SHORT' ? 'belowBar' : 'aboveBar', // SHORT exit: belowBar, LONG exit: aboveBar
                 color: (entry.pnl || 0) >= 0 ? '#0f0' : '#f00',
-                shape: 'arrowDown',
+                shape: entry.side === 'SHORT' ? 'arrowUp' : 'arrowDown', // SHORT exit: up arrow, LONG exit: down arrow
                 text: `EXIT @ ${entry.exitPrice.toFixed(4)}`,
             });
         }
@@ -1172,76 +1242,9 @@ class TradingApp {
             this.modalChart.remove();
             this.modalChart = null;
         }
-
-        this.modalMarkers = [];
         this.modalCandlestickSeries = null;
     }
 
-    // Load symbol list from Binance Futures
-    async loadSymbolList() {
-        try {
-            this.updateStatus('Loading symbols...', 'loading');
-
-            // Fetch exchange info from Binance Futures API
-            const response = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
-            const data = await response.json();
-
-            // Filter active USDT perpetual contracts
-            const usdtSymbols = data.symbols
-                .filter(symbol =>
-                    symbol.status === 'TRADING' &&
-                    symbol.contractType === 'PERPETUAL' &&
-                    symbol.quoteAsset === 'USDT'
-                )
-                .map(symbol => symbol.symbol)
-                .sort();
-
-            // Populate symbol select
-            const symbolSelect = document.getElementById('symbol');
-            symbolSelect.innerHTML = '';
-
-            // Add popular symbols first
-            const popularSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'MATICUSDT'];
-            const otherSymbols = usdtSymbols.filter(s => !popularSymbols.includes(s));
-
-            // Add popular symbols
-            popularSymbols.forEach(symbol => {
-                if (usdtSymbols.includes(symbol)) {
-                    const option = document.createElement('option');
-                    option.value = symbol;
-                    option.textContent = symbol;
-                    if (symbol === 'BTCUSDT') option.selected = true;
-                    symbolSelect.appendChild(option);
-                }
-            });
-
-            // Add separator
-            if (popularSymbols.length > 0 && otherSymbols.length > 0) {
-                const separator = document.createElement('option');
-                separator.disabled = true;
-                separator.textContent = '──────────';
-                symbolSelect.appendChild(separator);
-            }
-
-            // Add other symbols
-            otherSymbols.forEach(symbol => {
-                const option = document.createElement('option');
-                option.value = symbol;
-                option.textContent = symbol;
-                symbolSelect.appendChild(option);
-            });
-
-            this.updateStatus('Ready', 'success');
-
-        } catch (error) {
-            console.error('Error loading symbols:', error);
-            this.updateStatus('Error loading symbols', 'error');
-
-            // Fallback to manual input
-            const symbolSelect = document.getElementById('symbol');
-            symbolSelect.innerHTML = '<option value="BTCUSDT" selected>BTCUSDT</option>';
-        }
-    }
 
     // Update status message
     updateStatus(message, type = 'info') {
@@ -1265,20 +1268,23 @@ class TradingApp {
 
 // Global app instance for onclick handlers
 let app;
+let symbolSelector;
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing TradingApp');
-    console.log('BinanceAPI available:', typeof BinanceAPI);
-    console.log('ChartManager available:', typeof ChartManager);
-    console.log('ReplayEngine available:', typeof ReplayEngine);
-    console.log('BotATRIndicator available:', typeof BotATRIndicator);
-    console.log('BacktestEngine available:', typeof BacktestEngine);
-    console.log('BacktestConfig available:', typeof BacktestConfig);
-    console.log('LightweightCharts available:', typeof LightweightCharts);
+    // console.log('DOM loaded, initializing TradingApp');
+    // console.log('BinanceAPI available:', typeof BinanceAPI);
+    // console.log('SymbolSelector available:', typeof SymbolSelector);
+    // console.log('ChartManager available:', typeof ChartManager);
+    // console.log('ReplayEngine available:', typeof ReplayEngine);
+    // console.log('BotATRIndicator available:', typeof BotATRIndicator);
+    // console.log('BacktestEngine available:', typeof BacktestEngine);
+    // console.log('BacktestConfig available:', typeof BacktestConfig);
+    // console.log('LightweightCharts available:', typeof LightweightCharts);
 
     try {
         app = new TradingApp();
+        symbolSelector = app.symbolSelector; // Make symbolSelector global for onclick handlers
         console.log('TradingApp initialized successfully');
     } catch (error) {
         console.error('Error initializing TradingApp:', error);

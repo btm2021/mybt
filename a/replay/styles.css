@@ -44,7 +44,27 @@ body {
 .content {
     margin-top: 45px;
     height: calc(100vh - 45px);
-    overflow-y: auto;
+    overflow: hidden;
+}
+
+/* New 2-column layout */
+.main-layout {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+.chart-section {
+    width: 70%;
+    height: 100%;
+    background-color: #000;
+}
+
+.table-section {
+    width: 30%;
+    height: 100%;
+    background-color: #111;
+    border-left: 1px solid #333;
 }
 
 input,
@@ -74,6 +94,33 @@ select {
 
 #symbol {
     min-width: 120px;
+}
+
+.symbol-selector-btn {
+    min-width: 120px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #111;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 4px 8px;
+    cursor: pointer;
+    position: relative;
+}
+
+.symbol-selector-btn:hover {
+    background-color: #333;
+    border-color: #666;
+}
+
+.dropdown-arrow {
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.symbol-selector-btn.open .dropdown-arrow {
+    transform: rotate(180deg);
 }
 
 button {
@@ -120,15 +167,23 @@ button:disabled {
 
 #chart {
     width: 100%;
-    height: 60vh;
+    height: 100%;
     background-color: #000;
 }
 
 .backtest-panel {
-    background-color: #000;
-    border-top: 1px solid #333;
-    padding: 10px;
+    background-color: #111;
+    height: 100%;
     color: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-stats {
+    margin-top: auto;
+    padding: 10px;
+    border-top: 1px solid #333;
+    background-color: #000;
 }
 
 .stats-row {
@@ -170,7 +225,11 @@ button:disabled {
 
 .table-container {
     background-color: #111;
-    border: 1px solid #333;
+    border: none;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .table-header {
@@ -196,7 +255,7 @@ button:disabled {
 }
 
 .table-wrapper {
-    max-height: 400px;
+    flex: 1;
     overflow: auto;
 }
 
@@ -248,12 +307,19 @@ button:disabled {
 .table-cell-index {
     text-align: center;
     width: 30px;
+    font-weight: bold;
 }
 
-.table-cell-side {
-    text-align: center;
-    width: 40px;
-    font-weight: bold;
+.clickable-index {
+    cursor: pointer;
+    color: #0088ff;
+    transition: all 0.2s ease;
+}
+
+.clickable-index:hover {
+    color: #00aaff;
+    background-color: rgba(0, 136, 255, 0.1);
+    transform: scale(1.1);
 }
 
 .table-cell-datetime {
@@ -302,29 +368,34 @@ button:disabled {
 /* Loading animation */
 .loading::after {
     content: '';
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border: 1px solid #333;
-    border-top: 1px solid #fff;
+}
+
+.loading-spinner {
+    border: 3px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
+    border-top: 3px solid #0066cc;
+    width: 32px;
+    height: 32px;
     animation: spin 1s linear infinite;
-    margin-left: 5px;
+    margin: 0 auto 15px;
+}
+
+/* Mini spinner for buttons */
+.mini-spinner {
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 2px solid #fff;
+    width: 12px;
+    height: 12px;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-/* Status colors */
-.status-error {
-    color: #f00 !important;
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .status-success {
@@ -686,11 +757,266 @@ Styles */
         gap: 5px;
     }
 
-    .entry-info-item {
-        justify-content: space-between;
-    }
-
     #modal-chart {
         min-height: 300px;
+    }
+}
+
+/* Loading Overlay Styles */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 3000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    background-color: #111;
+    border: 1px solid #333;
+    padding: 30px;
+    border-radius: 8px;
+    text-align: center;
+    min-width: 200px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #333;
+    border-top: 3px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+.loading-text {
+    font-size: 14px;
+    color: #fff;
+    margin-bottom: 15px;
+}
+
+.loading-progress {
+    width: 100%;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #333;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #0066cc;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #ccc;
+}
+
+/* Symbol Modal Styles */
+.symbol-modal {
+    max-width: 900px;
+    width: 90%;
+    height: 80%;
+    max-height: 700px;
+}
+
+.symbol-search-container {
+    margin-bottom: 15px;
+}
+
+.symbol-search {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    background-color: #222;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+}
+
+.symbol-search:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.symbol-table-container {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid #333;
+    border-radius: 4px;
+}
+
+#symbol-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background-color: #000;
+}
+
+#symbol-table th {
+    background-color: #333;
+    color: #fff;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 12px;
+    border-right: 1px solid #555;
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+#symbol-table th.sortable:hover {
+    background-color: #444;
+}
+
+#symbol-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #222;
+    border-right: 1px solid #222;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+#symbol-table tbody tr:hover {
+    background-color: #111;
+}
+
+.symbol-name {
+    font-weight: bold;
+    color: #fff;
+}
+
+.price-change.positive {
+    color: #0f0;
+}
+
+.price-change.negative {
+    color: #f00;
+}
+
+.sort-indicator {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    opacity: 0.5;
+}
+
+.sort-indicator.asc:after {
+    content: '↑';
+    opacity: 1;
+}
+
+.sort-indicator.desc:after {
+    content: '↓';
+    opacity: 1;
+}
+
+.loading-row {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+/* Favorite star styles */
+.favorite-header {
+    width: 30px;
+    text-align: center;
+    color: #ffd700;
+    font-size: 14px;
+}
+
+.favorite-star {
+    cursor: pointer;
+    color: #666;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.favorite-star:hover {
+    color: #ffd700;
+    transform: scale(1.2);
+}
+
+.favorite-star.active {
+    color: #ffd700;
+}
+
+/* Price flash effects */
+.price-flash-up {
+    background-color: rgba(0, 255, 0, 0.3) !important;
+    transition: background-color 0.5s ease;
+}
+
+.price-flash-down {
+    background-color: rgba(255, 0, 0, 0.3) !important;
+    transition: background-color 0.5s ease;
+}
+
+/* Symbol table responsive */
+@media (max-width: 768px) {
+    .symbol-modal {
+        width: 95%;
+        height: 90%;
+    }
+    
+    #symbol-table th,
+    #symbol-table td {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}
+
+/* Main layout responsive */
+@media (max-width: 1024px) {
+    .main-layout {
+        flex-direction: column;
+    }
+    
+    .chart-section {
+        width: 100%;
+        height: 60%;
+    }
+    
+    .table-section {
+        width: 100%;
+        height: 40%;
+        border-left: none;
+        border-top: 1px solid #333;
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-section {
+        height: 50%;
+    }
+    
+    .table-section {
+        height: 50%;
+    }
+    
+    #backtest-table th,
+    #backtest-table td {
+        padding: 4px 6px;
+        font-size: 10px;
+    }
+    
+    .table-header {
+        font-size: 9px;
     }
 }

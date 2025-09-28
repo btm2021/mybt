@@ -14,9 +14,10 @@
     <div class="navbar">
         <div class="nav-group data-controls">
             <label>Symbol:</label>
-            <select id="symbol">
-                <option value="">Loading...</option>
-            </select>
+            <button id="symbolSelector" class="symbol-selector-btn">
+                <span id="selectedSymbol">Select Symbol</span>
+                <span class="dropdown-arrow">▼</span>
+            </button>
             <label>Timeframe:</label>
             <select id="timeframe">
                 <option value="1m">1m</option>
@@ -25,7 +26,7 @@
                 <option value="1h">1h</option>
             </select>
             <label>Candles:</label>
-            <input type="number" id="candleCount" value="1500" min="100" placeholder="Nến">
+            <input type="number" id="candleCount" value="10000" min="100" placeholder="Nến">
             <button id="loadData">Load Data</button>
         </div>
         
@@ -52,41 +53,45 @@
     </div>
 
     <div class="content">
-        <div id="chart"></div>
-
-        <div id="backtest-results" class="backtest-panel" style="display: none;">
-            <div class="stats-row">
-                <div id="backtest-stats"></div>
+        <div class="main-layout">
+            <!-- Chart Section - 75% width -->
+            <div class="chart-section">
+                <div id="chart"></div>
             </div>
 
-            <div class="table-container">
-                <div class="table-header">
-                    <span>Lệnh Giao Dịch</span>
-                    <div class="table-controls">
-                        <button id="exportTableBtn">CSV</button>
-                        <button id="sortTableBtn">Sort</button>
-                        <span id="tableRowCount">0</span>
+            <!-- Table Section - 25% width -->
+            <div class="table-section">
+                <div id="backtest-results" class="backtest-panel">
+                    <div class="table-container">
+                        <div class="table-header">
+                            <span>Lệnh Giao Dịch</span>
+                            <div class="table-controls">
+                                <button id="exportTableBtn">CSV</button>
+                                <button id="sortTableBtn">Sort</button>
+                                <span id="tableRowCount">0</span>
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="backtest-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Side</th>
+                                        <th>Entry</th>
+                                        <th>Max Price</th>
+                                        <th>Max PnL</th>
+                                        <th>Max %</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="backtest-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Statistics moved to bottom -->
+                        <div class="table-stats">
+                            <div id="backtest-stats"></div>
+                        </div>
                     </div>
-                </div>
-                <div class="table-wrapper">
-                    <table id="backtest-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Side</th>
-                                <th>Entry Time</th>
-                                <th>Exit Time</th>
-                                <th>Entry Price</th>
-                                <th>Max Price</th>
-                                <th>Coin Amount</th>
-                                <th>Max PnL</th>
-                                <th>Max %</th>
-                                <th>Candles</th>
-                            </tr>
-                        </thead>
-                        <tbody id="backtest-table-body">
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </div>
@@ -198,7 +203,53 @@
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading...</div>
+            <div class="loading-progress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="progress-text">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Symbol Selection Modal -->
+    <div id="symbolModal" class="modal" style="display: none;">
+        <div class="modal-content symbol-modal">
+            <div class="modal-header">
+                <span class="modal-title">Select Symbol</span>
+                <span class="modal-close symbol-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="symbol-search-container">
+                    <input type="text" id="symbolSearch" placeholder="Search symbols..." class="symbol-search">
+                </div>
+                <div class="symbol-table-container">
+                    <table id="symbol-table">
+                        <thead>
+                            <tr>
+                                <th class="favorite-header">★</th>
+                                <th data-sort="symbol" class="sortable">Symbol <span class="sort-indicator"></span></th>
+                                <th data-sort="lastPrice" class="sortable">Last Price <span class="sort-indicator"></span></th>
+                                <th data-sort="quoteVolume" class="sortable">Volume (USDT) <span class="sort-indicator"></span></th>
+                                <th data-sort="priceChangePercent" class="sortable">Change % <span class="sort-indicator"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="symbol-table-body">
+                            <tr><td colspan="5" class="loading-row">Loading symbols...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="binance-api.js"></script>
+    <script src="symbol-selector.js"></script>
     <script src="botatr.js"></script>
     <script src="replay-engine.js"></script>
     <script src="chart-manager.js"></script>

@@ -45,6 +45,7 @@ class BinanceAPI {
 
     // Fetch klines data from Binance
     async fetchKlines(symbol, interval, startTime, endTime, limit) {
+        console.log('fetch symbol')
         const params = new URLSearchParams({
             symbol: symbol.toUpperCase(),
             interval,
@@ -89,7 +90,8 @@ class BinanceAPI {
                 const batch = batches[i];
                 
                 if (onProgress) {
-                    onProgress(i + 1, batches.length, `Đang tải batch ${i + 1}/${batches.length}...`);
+                    const currentCount = allData.length;
+                    onProgress(i + 1, batches.length, `Tải batch ${i + 1}/${batches.length} (${currentCount}/${candleCount} nến)`);
                 }
                 
                 const klines = await this.fetchKlines(
@@ -121,6 +123,58 @@ class BinanceAPI {
         } catch (error) {
             console.error('Error fetching historical data:', error);
             throw error;
+        }
+    }
+
+    // Fetch 24hr ticker statistics from Binance
+    async fetch24hrTicker() {
+        const url = `${this.baseUrl}/ticker/24hr`;
+        
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching 24hr ticker:', error);
+            throw error;
+        }
+    }
+
+    // Format 24hr ticker data for the symbol table
+    format24hrTicker(tickerData) {
+        return tickerData.map(ticker => ({
+            symbol: ticker.symbol,
+            lastPrice: parseFloat(ticker.lastPrice),
+            priceChange: parseFloat(ticker.priceChange),
+            priceChangePercent: parseFloat(ticker.priceChangePercent),
+            highPrice: parseFloat(ticker.highPrice),
+            lowPrice: parseFloat(ticker.lowPrice),
+            volume: parseFloat(ticker.volume),
+            quoteVolume: parseFloat(ticker.quoteVolume),
+            count: parseInt(ticker.count),
+            openTime: parseInt(ticker.openTime),
+            closeTime: parseInt(ticker.closeTime)
+        })).filter(ticker => {
+            // Filter to only include USDT pairs
+            return ticker.symbol.endsWith('USDT');
+        });
+    }
+
+    // Get list of symbols for dropdown
+    async getSymbolList() {
+        try {
+            const tickerData = await this.fetch24hrTicker();
+            const formatted = this.format24hrTicker(tickerData);
+            
+            // Sort by 24h volume (descending) and return symbol names
+            return formatted
+                .sort((a, b) => b.quoteVolume - a.quoteVolume)
+                .map(ticker => ticker.symbol);
+        } catch (error) {
+            console.error('Error getting symbol list:', error);
+            return [];
         }
     }
 }

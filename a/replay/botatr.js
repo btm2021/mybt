@@ -496,14 +496,14 @@ class SimpleBacktestSystem {
 
             // Log significant events
             if (processingResult.sideChanged) {
-                console.log(`Candle ${i}: Side changed from ${processingResult.previousSide} to ${processingResult.currentSide}`);
+               // console.log(`Candle ${i}: Side changed from ${processingResult.previousSide} to ${processingResult.currentSide}`);
                 
                 if (processingResult.entryClosed) {
-                    console.log(`  - Closed entry: ${processingResult.entryClosed.side} PnL: ${processingResult.entryClosed.pnl?.toFixed(2)} USDT (${processingResult.entryClosed.pnlPercent?.toFixed(2)}%)`);
+                //    console.log(`  - Closed entry: ${processingResult.entryClosed.side} PnL: ${processingResult.entryClosed.pnl?.toFixed(2)} USDT (${processingResult.entryClosed.pnlPercent?.toFixed(2)}%)`);
                 }
                 
                 if (processingResult.entryCreated) {
-                    console.log(`  - Created new ${processingResult.entryCreated.side} entry (pending execution)`);
+                 //   console.log(`  - Created new ${processingResult.entryCreated.side} entry (pending execution)`);
                 }
             }
         }
