@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance Chart Replay</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body>
+    <div class="navbar">
+        <input type="text" id="symbol" value="IMXUSDT" placeholder="Symbol">
+        <select id="timeframe">
+            <option value="1m">1m</option>
+            <option value="5m">5m</option>
+            <option value="15m" selected>15m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+            <option value="1d">1d</option>
+        </select>
+        <input type="number" id="candleCount" value="1000" min="100" max="10000" placeholder="Nến">
+        <button id="loadData">Tải</button>
+        <button id="replayBtn">Replay</button>
+        <button id="playPauseBtn" disabled>Play</button>
+        <button id="stepBtn" disabled>Step</button>
+        <button class="speed-btn" data-speed="1">1x</button>
+        <button class="speed-btn active" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="10">10x</button>
+        <button id="backtestBtn">Backtest</button>
+        <button id="clearBacktestBtn">Xóa</button>
+        <span id="status">Sẵn sàng</span>
+        <span id="progress"></span>
+    </div>
+
+    <div class="content">
+        <div id="chart"></div>
+
+        <div id="backtest-results" class="backtest-panel" style="display: none;">
+            <div class="stats-row">
+                <div id="backtest-stats"></div>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <span>Lệnh Giao Dịch</span>
+                    <div class="table-controls">
+                        <button id="exportTableBtn">CSV</button>
+                        <button id="sortTableBtn">Sort</button>
+                        <span id="tableRowCount">0</span>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="backtest-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Side</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>Price In</th>
+                                <th>Price Out</th>
+                                <th>Amount</th>
+                                <th>PnL</th>
+                                <th>%</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backtest-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="binance-api.js"></script>
+    <script src="botatr.js"></script>
+    <script src="replay-engine.js"></script>
+    <script src="chart-manager.js"></script>
+    <script src="backtest-engine.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
