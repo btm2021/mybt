@@ -7,6 +7,7 @@ class ReplayEngine {
         this.speed = 5; // Default speed multiplier
         this.intervalId = null;
         this.botATR = new BotATRIndicator(30, 14, 2.0);
+        this.vsr = new VSRIndicator(10, 10); // VSR with default parameters
         
         this.baseDelay = 1000; // Base delay in milliseconds (1 second)
     }
@@ -23,6 +24,7 @@ class ReplayEngine {
         this.isPlaying = false;
         this.clearInterval();
         this.botATR.reset();
+        this.vsr.reset();
         this.chartManager.clearChart();
     }
 
@@ -49,17 +51,24 @@ class ReplayEngine {
         // Calculate ATR indicators
         const atrResult = this.botATR.calculateIncremental(currentCandle);
         
-        // Update chart with current candle
-        this.chartManager.addCandle(currentCandle);
+        // Calculate VSR indicators
+        const vsrResult = this.vsr.calculateIncremental(currentCandle);
         
+        // Update chart with current candle
         // Update Trail1 and Trail2 lines
         this.chartManager.addTrail1Point(atrResult.ema);
         this.chartManager.addTrail2Point(atrResult.trail);
-
-        this.currentIndex++;
         
-        // Update progress
-        this.updateProgress();
+        // Update VSR levels if they exist
+        if (vsrResult.upper) {
+            this.chartManager.addVSRUpperLinePoint(vsrResult.upper);
+        }
+        if (vsrResult.lower) {
+            this.chartManager.addVSRLowerLinePoint(vsrResult.lower);
+        }
+
+        this.chartManager.addCandle(currentCandle);
+        this.currentIndex++;
         
         // Check if replay is complete
         if (this.currentIndex >= this.data.length) {

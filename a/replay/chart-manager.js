@@ -69,15 +69,42 @@ class ChartManager {
         // Create Trail1 series (EMA)
         this.trail1Series = this.chart.addLineSeries({
             color: '#00ff00',
-            lineWidth: 2,
+            lineWidth:1,
             title: 'Trail1 (EMA)',
+            priceLineVisible: false,
+            axisLabelVisible:false
         });
 
         // Create Trail2 series (ATR Trailing Stop)
         this.trail2Series = this.chart.addLineSeries({
             color: '#ff0000',
-            lineWidth: 2,
+            lineWidth: 1,
             title: 'Trail2 (ATR)',
+            priceLineVisible: false,
+            axisLabelVisible: false
+        });
+
+
+        // Create VSR Upper Line series (upper boundary line)
+        this.vsrUpperLineSeries = this.chart.addLineSeries({
+            color: 'rgba(0, 255, 0, 1.0)',         // Solid green line
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dotted,
+            title: 'VSR Upper',
+            crosshairMarkerVisible: true,
+            priceLineVisible: false,
+            axisLabelVisible:false
+        });
+
+        // Create VSR Lower Line series (lower boundary line)
+        this.vsrLowerLineSeries = this.chart.addLineSeries({
+            color: 'rgba(0, 255, 0, 1.0)',         // Solid green line
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dotted,
+            title: 'VSR Lower',
+            priceLineVisible: false,
+            axisLabelVisible: false,
+            crosshairMarkerVisible: true,
         });
 
         // Handle resize
@@ -107,6 +134,12 @@ class ChartManager {
         if (this.trail2Series) {
             this.trail2Series.setData([]);
         }
+        if (this.vsrUpperLineSeries) {
+            this.vsrUpperLineSeries.setData([]);
+        }
+        if (this.vsrLowerLineSeries) {
+            this.vsrLowerLineSeries.setData([]);
+        }
     }
 
     // Add a single candle to the chart
@@ -127,6 +160,21 @@ class ChartManager {
     addTrail2Point(point) {
         if (this.trail2Series) {
             this.trail2Series.update(point);
+        }
+    }
+
+
+    // Add VSR upper line point to the chart
+    addVSRUpperLinePoint(point) {
+        if (this.vsrUpperLineSeries && point) {
+            this.vsrUpperLineSeries.update(point);
+        }
+    }
+
+    // Add VSR lower line point to the chart
+    addVSRLowerLinePoint(point) {
+        if (this.vsrLowerLineSeries && point) {
+            this.vsrLowerLineSeries.update(point);
         }
     }
 
@@ -248,6 +296,73 @@ class ChartManager {
         }
     }
 
+    // Set all VSR Upper Line data at once
+    setVSRUpperLineData(data) {
+        if (this.vsrUpperLineSeries && data && data.length > 0) {
+            // Determine precision based on data values
+            const values = data.map(d => d.value);
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            let precision = 2;
+            let minMove = 0.01;
+            
+            if (avgValue < 1) {
+                precision = 6;
+                minMove = 0.0001;
+            } else if (avgValue < 10) {
+                precision = 4;
+                minMove = 0.0001;
+            } else if (avgValue < 100) {
+                precision = 3;
+                minMove = 0.001;
+            }
+            
+            this.vsrUpperLineSeries.applyOptions({
+                priceFormat: {
+                    type: 'price',
+                    precision: precision,
+                    minMove: minMove,
+                },
+            });
+            
+            this.vsrUpperLineSeries.setData(data);
+        }
+    }
+
+    // Set all VSR Lower Line data at once
+    setVSRLowerLineData(data) {
+        if (this.vsrLowerLineSeries && data && data.length > 0) {
+            // Determine precision based on data values
+            const values = data.map(d => d.value);
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            let precision = 2;
+            let minMove = 0.01;
+            
+            if (avgValue < 1) {
+                precision = 6;
+                minMove = 0.0001;
+            } else if (avgValue < 10) {
+                precision = 4;
+                minMove = 0.0001;
+            } else if (avgValue < 100) {
+                precision = 3;
+                minMove = 0.001;
+            }
+            
+            this.vsrLowerLineSeries.applyOptions({
+                priceFormat: {
+                    type: 'price',
+                    precision: precision,
+                    minMove: minMove,
+                },
+            });
+            
+            this.vsrLowerLineSeries.setData(data);
+        }
+    }
+
+
     // Fit chart content to visible area
     fitContent() {
         if (this.chart) {
@@ -268,6 +383,8 @@ class ChartManager {
             this.candlestickSeries = null;
             this.trail1Series = null;
             this.trail2Series = null;
+            this.vsrUpperLineSeries = null;
+            this.vsrLowerLineSeries = null;
         }
         window.removeEventListener('resize', this.handleResize);
     }

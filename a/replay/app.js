@@ -8,6 +8,21 @@ class TradingApp {
             this.cacheManager = new CacheManager();
             this.symbolSelector = new SymbolSelector(this.binanceAPI);
             this.currentData = [];
+            this.simpleBacktest = null;
+            this.currentTableData = [];
+
+            // Indicator settings with default values
+            this.indicatorSettings = {
+                botATR: {
+                    emaLength: 30,
+                    atrLength: 14,
+                    atrMultiplier: 2.0
+                },
+                vsr: {
+                    length: 10,
+                    threshold: 10
+                }
+            };
 
             this.initializeEventListeners();
             this.initializeBacktestEventListeners();
@@ -32,7 +47,7 @@ class TradingApp {
         document.addEventListener('symbolSelected', (e) => {
             const { symbol } = e.detail;
             console.log('Symbol selected:', symbol);
-            
+
             // Auto load data when symbol is selected
             setTimeout(() => {
                 this.loadData();
@@ -187,7 +202,7 @@ class TradingApp {
             }
 
             this.updateStatus(`Đang xóa cache ${symbol} ${timeframe}...`, 'loading');
-            
+
             try {
                 const success = await this.cacheManager.deleteCacheEntry(symbol, timeframe);
                 if (success) {
@@ -219,7 +234,7 @@ class TradingApp {
             }
 
             this.updateStatus('Đang xóa tất cả cache...', 'loading');
-            
+
             try {
                 const success = await this.cacheManager.clearAllCache();
                 if (success) {
@@ -323,6 +338,11 @@ class TradingApp {
             this.showCacheModal();
         });
 
+        // Indicator settings
+        safeAddEventListener('indicatorSettingsBtn', 'click', () => {
+            this.showIndicatorSettings();
+        });
+
         // Table controls - these might not exist initially
         setTimeout(() => {
             safeAddEventListener('exportTableBtn', 'click', () => {
@@ -411,7 +431,7 @@ class TradingApp {
 
                 this.symbolSelector.showLoadingOverlay(`${fetchMessage}...`);
                 this.updateStatus('Tải từ Binance...', 'loading');
-                
+
                 const newData = await this.binanceAPI.fetchHistoricalData(
                     symbol,
                     timeframe,
@@ -462,10 +482,23 @@ class TradingApp {
             this.chartManager.setCandlestickData(data);
 
             // Calculate and show full ATR indicators
-            const botATR = new BotATRIndicator(30, 14, 2.0);
+            const botATR = new BotATRIndicator(
+                this.indicatorSettings.botATR.emaLength,
+                this.indicatorSettings.botATR.atrLength,
+                this.indicatorSettings.botATR.atrMultiplier
+            );
             const atrData = botATR.calculateArray(data);
             this.chartManager.setTrail1Data(atrData.ema);
             this.chartManager.setTrail2Data(atrData.trail);
+
+            // Calculate and show VSR indicators
+            const vsr = new VSRIndicator(
+                this.indicatorSettings.vsr.length,
+                this.indicatorSettings.vsr.threshold
+            );
+            const vsrData = vsr.calculateArray(data);
+            this.chartManager.setVSRUpperLineData(vsrData.upper);
+            this.chartManager.setVSRLowerLineData(vsrData.lower);
 
             this.chartManager.fitContent();
 
@@ -851,7 +884,7 @@ class TradingApp {
 
         // Convert entry time to chart time (seconds)
         const chartTime = Math.floor(entry.entryTime / 1000);
-        
+
         // Set chart visible range to show the entry time in center
         const visibleRange = {
             from: chartTime - 50, // Show 50 candles before
@@ -859,7 +892,7 @@ class TradingApp {
         };
 
         this.chart.timeScale().setVisibleRange(visibleRange);
-        
+
         // Highlight the entry briefly
         this.updateStatus(`Jumped to entry #${entryIndex + 1} at ${new Date(entry.entryTime).toLocaleString('vi-VN')}`, 'info');
     }
@@ -1123,6 +1156,10 @@ class TradingApp {
             const botATR = new BotATRIndicator(30, 14, 2.0);
             const atrData = botATR.calculateArray(entry.candleData);
 
+            // Calculate VSR indicators for this entry period
+            const vsr = new VSRIndicator(10, 10);
+            const vsrData = vsr.calculateArray(entry.candleData);
+
             // Determine precision for indicators
             const entryPrice = entry.entryPrice || 1;
             let precision = 2;
@@ -1164,6 +1201,42 @@ class TradingApp {
                 },
             });
             trail2Series.setData(atrData.trail);
+
+            // Add VSR Upper levels
+            if (vsrData.upper && vsrData.upper.length > 0) {
+                const vsrUpperSeries = this.modalChart.addLineSeries({
+                    color: '#00ff00',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dotted,
+                    title: 'VSR Upper',
+                    pointMarkersVisible: true,
+                    lineVisible: false,
+                    priceFormat: {
+                        type: 'price',
+                        precision: precision,
+                        minMove: minMove,
+                    },
+                });
+                vsrUpperSeries.setData(vsrData.upper);
+            }
+
+            // Add VSR Lower levels
+            if (vsrData.lower && vsrData.lower.length > 0) {
+                const vsrLowerSeries = this.modalChart.addLineSeries({
+                    color: '#00ff00',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dotted,
+                    title: 'VSR Lower',
+                    pointMarkersVisible: true,
+                    lineVisible: false,
+                    priceFormat: {
+                        type: 'price',
+                        precision: precision,
+                        minMove: minMove,
+                    },
+                });
+                vsrLowerSeries.setData(vsrData.lower);
+            }
 
         } catch (error) {
             console.error('Error adding modal indicators:', error);
@@ -1264,6 +1337,175 @@ class TradingApp {
             statusElement.classList.add(`status-${type}`);
         }
     }
+
+    // Show indicator settings modal
+    showIndicatorSettings() {
+        // Populate current values
+        document.getElementById('bot-ema-length').value = this.indicatorSettings.botATR.emaLength;
+        document.getElementById('bot-atr-length').value = this.indicatorSettings.botATR.atrLength;
+        document.getElementById('bot-atr-multiplier').value = this.indicatorSettings.botATR.atrMultiplier;
+        document.getElementById('vsr-length').value = this.indicatorSettings.vsr.length;
+        document.getElementById('vsr-threshold').value = this.indicatorSettings.vsr.threshold;
+
+        // Show modal
+        const modal = document.getElementById('indicatorSettingsModal');
+        modal.style.display = 'block';
+
+        // Initialize event listeners if not already done
+        this.initializeSettingsModal();
+    }
+
+    // Initialize settings modal event listeners
+    initializeSettingsModal() {
+        // Prevent multiple initializations
+        if (this.settingsModalInitialized) return;
+        this.settingsModalInitialized = true;
+
+        const modal = document.getElementById('indicatorSettingsModal');
+        const closeBtn = document.querySelector('.settings-modal-close');
+
+        // Close modal handlers
+        closeBtn.addEventListener('click', () => {
+            this.closeSettingsModal();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeSettingsModal();
+            }
+        });
+
+        // Settings buttons
+        document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+            this.resetIndicatorSettings();
+        });
+
+        document.getElementById('applySettingsBtn').addEventListener('click', () => {
+            this.applyIndicatorSettings();
+        });
+    }
+
+    // Close settings modal
+    closeSettingsModal() {
+        const modal = document.getElementById('indicatorSettingsModal');
+        modal.style.display = 'none';
+    }
+
+    // Reset indicator settings to default
+    resetIndicatorSettings() {
+        this.indicatorSettings = {
+            botATR: {
+                emaLength: 30,
+                atrLength: 14,
+                atrMultiplier: 2.0
+            },
+            vsr: {
+                length: 10,
+                threshold: 10
+            }
+        };
+
+        // Update form values
+        document.getElementById('bot-ema-length').value = 30;
+        document.getElementById('bot-atr-length').value = 14;
+        document.getElementById('bot-atr-multiplier').value = 2.0;
+        document.getElementById('vsr-length').value = 10;
+        document.getElementById('vsr-threshold').value = 10;
+
+        this.updateStatus('Settings reset to default', 'info');
+    }
+
+    // Apply indicator settings
+    applyIndicatorSettings() {
+        // Get values from form
+        const botEmaLength = parseInt(document.getElementById('bot-ema-length').value);
+        const botAtrLength = parseInt(document.getElementById('bot-atr-length').value);
+        const botAtrMultiplier = parseFloat(document.getElementById('bot-atr-multiplier').value);
+        const vsrLength = parseInt(document.getElementById('vsr-length').value);
+        const vsrThreshold = parseInt(document.getElementById('vsr-threshold').value);
+
+        // Validate values
+        if (botEmaLength < 1 || botEmaLength > 200) {
+            this.updateStatus('Bot EMA Length must be between 1 and 200', 'error');
+            return;
+        }
+        if (botAtrLength < 1 || botAtrLength > 100) {
+            this.updateStatus('Bot ATR Length must be between 1 and 100', 'error');
+            return;
+        }
+        if (botAtrMultiplier < 0.1 || botAtrMultiplier > 10) {
+            this.updateStatus('Bot ATR Multiplier must be between 0.1 and 10', 'error');
+            return;
+        }
+        if (vsrLength < 1 || vsrLength > 100) {
+            this.updateStatus('VSR Length must be between 1 and 100', 'error');
+            return;
+        }
+        if (vsrThreshold < 1 || vsrThreshold > 100) {
+            this.updateStatus('VSR Threshold must be between 1 and 100', 'error');
+            return;
+        }
+
+        // Update settings
+        this.indicatorSettings.botATR.emaLength = botEmaLength;
+        this.indicatorSettings.botATR.atrLength = botAtrLength;
+        this.indicatorSettings.botATR.atrMultiplier = botAtrMultiplier;
+        this.indicatorSettings.vsr.length = vsrLength;
+        this.indicatorSettings.vsr.threshold = vsrThreshold;
+
+        // Close modal
+        this.closeSettingsModal();
+
+        // Reload data with new settings
+        if (this.currentData && this.currentData.length > 0) {
+            this.updateStatus('Applying new indicator settings...', 'loading');
+            this.reloadIndicators();
+        } else {
+            this.updateStatus('Settings applied. Load data to see changes.', 'success');
+        }
+    }
+
+    // Reload indicators with new settings
+    reloadIndicators() {
+        if (!this.currentData || this.currentData.length === 0) return;
+
+        try {
+            // Recalculate ATR indicators
+            const botATR = new BotATRIndicator(
+                this.indicatorSettings.botATR.emaLength,
+                this.indicatorSettings.botATR.atrLength,
+                this.indicatorSettings.botATR.atrMultiplier
+            );
+            const atrData = botATR.calculateArray(this.currentData);
+            this.chartManager.setTrail1Data(atrData.ema);
+            this.chartManager.setTrail2Data(atrData.trail);
+
+            // Recalculate VSR indicators
+            const vsr = new VSRIndicator(
+                this.indicatorSettings.vsr.length,
+                this.indicatorSettings.vsr.threshold
+            );
+            const vsrData = vsr.calculateArray(this.currentData);
+            this.chartManager.setVSRUpperLineData(vsrData.upper);
+            this.chartManager.setVSRLowerLineData(vsrData.lower);
+
+            // Update replay engine with new settings
+            this.replayEngine.botATR = new BotATRIndicator(
+                this.indicatorSettings.botATR.emaLength,
+                this.indicatorSettings.botATR.atrLength,
+                this.indicatorSettings.botATR.atrMultiplier
+            );
+            this.replayEngine.vsr = new VSRIndicator(
+                this.indicatorSettings.vsr.length,
+                this.indicatorSettings.vsr.threshold
+            );
+
+            this.updateStatus('Indicator settings applied successfully', 'success');
+        } catch (error) {
+            console.error('Error reloading indicators:', error);
+            this.updateStatus('Error applying settings: ' + error.message, 'error');
+        }
+    }
 }
 
 // Global app instance for onclick handlers
@@ -1272,15 +1514,7 @@ let symbolSelector;
 
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    // console.log('DOM loaded, initializing TradingApp');
-    // console.log('BinanceAPI available:', typeof BinanceAPI);
-    // console.log('SymbolSelector available:', typeof SymbolSelector);
-    // console.log('ChartManager available:', typeof ChartManager);
-    // console.log('ReplayEngine available:', typeof ReplayEngine);
-    // console.log('BotATRIndicator available:', typeof BotATRIndicator);
-    // console.log('BacktestEngine available:', typeof BacktestEngine);
-    // console.log('BacktestConfig available:', typeof BacktestConfig);
-    // console.log('LightweightCharts available:', typeof LightweightCharts);
+
 
     try {
         app = new TradingApp();

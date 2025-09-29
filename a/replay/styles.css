@@ -1020,3 +1020,105 @@ Styles */
         font-size: 9px;
     }
 }
+
+/* Indicator Settings Modal */
+.settings-modal {
+    max-width: 500px;
+    width: 90%;
+}
+
+.settings-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #1a1a1a;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.settings-section h3 {
+    color: #fff;
+    font-size: 14px;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.setting-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.setting-group:last-child {
+    margin-bottom: 0;
+}
+
+.setting-group label {
+    color: #ccc;
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.setting-group input[type="number"] {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 80px;
+    text-align: center;
+}
+
+.setting-group input[type="number"]:focus {
+    outline: none;
+    border-color: #007acc;
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.settings-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #333;
+}
+
+.settings-controls button {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.settings-controls button:hover {
+    background-color: #444;
+    border-color: #666;
+}
+
+#applySettingsBtn {
+    background-color: #007acc;
+    border-color: #007acc;
+}
+
+#applySettingsBtn:hover {
+    background-color: #0066aa;
+    border-color: #0066aa;
+}
+
+#resetSettingsBtn {
+    background-color: #666;
+    border-color: #666;
+}
+
+#resetSettingsBtn:hover {
+    background-color: #777;
+    border-color: #777;
+}
